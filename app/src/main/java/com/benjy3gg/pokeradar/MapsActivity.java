@@ -94,6 +94,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private SharedPreferences sharedPref;
     private boolean mDoReverse = false;
     public HashMap<String, MarkerOptions> map = new HashMap<>();
+    public List<Boolean> shouldNotify = new ArrayList<>();
+    public List<Boolean> shouldShow = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -114,6 +116,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             editUsername.setText(username);
             editPassword.setText(password);
             //editApikey.setText(apikey);
+        }
+
+        for(int i=1; i <= 151; i++) {
+            shouldNotify.add(sharedPref.getBoolean("notify_"+i, true));
+            shouldShow.add(sharedPref.getBoolean("show_"+i, true));
         }
 
         Button btn = (Button)findViewById(R.id.login);
@@ -370,7 +377,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                             if(map.get(String.valueOf(p.getEncounterId())) == null) {
                                 long now = System.currentTimeMillis();
                                 if(Long.valueOf(m.getSnippet()) > now) {
-                                    publishProgress(m);
+                                    if(shouldShow.get(p.getPokemonData().getPokemonIdValue())) {
+                                        publishProgress(m);
+                                    }else {
+                                        Log.i(TAG, "Hidden: " + name);
+                                    }
+
                                 }
 
                             }

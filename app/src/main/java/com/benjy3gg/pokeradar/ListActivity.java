@@ -1,8 +1,11 @@
 package com.benjy3gg.pokeradar;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.CheckBox;
 import android.widget.ListView;
 import android.widget.Toast;
 import android.app.Activity;
@@ -16,12 +19,15 @@ public class ListActivity extends Activity {
     ListView list;
     private List<String> web;
     private List<Integer> imageId;
+    private SharedPreferences sharedPref;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_list);
+
+        sharedPref = getSharedPreferences("credentials", Context.MODE_PRIVATE);
 
         web = new ArrayList<>();
         imageId = new ArrayList<>();
@@ -42,7 +48,10 @@ public class ListActivity extends Activity {
             public void onItemClick(AdapterView<?> parent, View view,
                                     int position, long id) {
                 Toast.makeText(ListActivity.this, "You Clicked at " +web.get(position), Toast.LENGTH_SHORT).show();
-
+                SharedPreferences.Editor editor = sharedPref.edit();
+                editor.putBoolean("notify_"+(position+1), ((CheckBox)list.findViewById(R.id.checkBoxNotify)).isChecked());
+                editor.putBoolean("show_"+(position+1), ((CheckBox)list.findViewById(R.id.checkBoxShow)).isChecked());
+                editor.apply();
             }
         });
 
