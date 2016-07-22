@@ -111,7 +111,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         editUsername = (EditText)findViewById(R.id.editUsername);
         editPassword = (EditText)findViewById(R.id.editPassword);
-        //editApikey = (EditText)findViewById(R.id.editApi);
+        editApikey = (EditText)findViewById(R.id.editApi);
+        editApikey.setVisibility(View.INVISIBLE);
         final String username = sharedPref.getString("username", "");
         final String password = sharedPref.getString("password", "");
         //final String apikey = sharedPref.getString("apikey", "");
@@ -128,7 +129,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         Button btn = (Button)findViewById(R.id.login);
         final ToggleButton reverse = (ToggleButton)findViewById(R.id.reverse);
-
+        reverse.setVisibility(View.INVISIBLE);
         reverse.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
@@ -154,6 +155,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
 
         Button settings = (Button)findViewById(R.id.settings);
+        settings.setVisibility(View.INVISIBLE);
         settings.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
