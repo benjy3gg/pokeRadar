@@ -44,10 +44,12 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import POGOProtos.Data.PokemonDataOuterClass;
 import POGOProtos.Enums.PokemonIdOuterClass;
 import POGOProtos.Map.Pokemon.WildPokemonOuterClass;
 import POGOProtos.Networking.Envelopes.RequestEnvelopeOuterClass;
@@ -72,7 +74,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     String TAG = "PENIS";
     OkHttpClient client;
     RequestEnvelopeOuterClass.RequestEnvelope.AuthInfo auth;
-    List<Marker> markers = new ArrayList<>();
+
     private LocationManager locationManager;
     private String provider;
     MyTimerTask myTask;
@@ -93,7 +95,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Circle vCircle;
     private SharedPreferences sharedPref;
     private boolean mDoReverse = false;
-    public HashMap<String, MarkerOptions> map = new HashMap<>();
+    public HashMap<String, WildPokemonExt> map = new HashMap<>();
+    HashMap<String, Marker> markers = new HashMap<>();
     public List<Boolean> shouldNotify = new ArrayList<>();
     public List<Boolean> shouldShow = new ArrayList<>();
 
@@ -308,7 +311,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             this.loc = loc;
         }
 
-        final class MyAsyncTask extends AsyncTask<LatLng, MarkerOptions, List<MarkerOptions>> {
+        final class MyAsyncTask extends AsyncTask<LatLng, WildPokemonOuterClass.WildPokemon, List<WildPokemonOuterClass.WildPokemon>> {
 
             @Override
             protected void onPreExecute() {
@@ -322,7 +325,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
 
             @Override
-            protected List<MarkerOptions> doInBackground(LatLng... params) {
+            protected List<WildPokemonOuterClass.WildPokemon> doInBackground(LatLng... params) {
                 final List<MarkerOptions> list = new ArrayList<>();
                 final LatLng loc = params[0];
                 //y + 1, x +2 seems good
@@ -355,7 +358,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     }
                 });
 
-                for(LatLng search_loc : loc_list) {
+                for(final LatLng search_loc : loc_list) {
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {
@@ -363,22 +366,26 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     }
                     //mMap.addMarker(new MarkerOptions().position(new LatLng(search_loc.latitude, search_loc.longitude)));
                     go.setLocation(search_loc.latitude, search_loc.longitude, 0);
-                    publishProgress(new MarkerOptions().position(new LatLng(search_loc.latitude, search_loc.longitude)));
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            vCircle.setCenter(search_loc);
+                        }
+                    });
+
                     try {
                         Collection<WildPokemonOuterClass.WildPokemon> poke = go.getMap().getMapObjects().getWildPokemons();
                         //TODO: Add notification for CatchablePokemon?
                         for (WildPokemonOuterClass.WildPokemon p : poke) {
-                            String name = PokemonIdOuterClass.PokemonId.valueOf(p.getPokemonData().getPokemonIdValue()).name();
-                            MarkerOptions m = new MarkerOptions()
-                                    .position(new LatLng(p.getLatitude(), p.getLongitude()))
-                                    .title(name + ", bis: " + p.getTimeTillHiddenMs()/1000)
-                                    .icon(BitmapDescriptorFactory.fromResource(getResourseId("prefix_" + p.getPokemonData().getPokemonIdValue(), "drawable")))
-                                    .snippet(""+(System.currentTimeMillis()+p.getTimeTillHiddenMs()));
                             if(map.get(String.valueOf(p.getEncounterId())) == null) {
+                                PokemonDataOuterClass.PokemonData f_poke = p.getPokemonData();
+                                String name = PokemonIdOuterClass.PokemonId.valueOf(p.getPokemonData().getPokemonIdValue()).name();
+                                long till = System.currentTimeMillis()+p.getTimeTillHiddenMs();
                                 long now = System.currentTimeMillis();
-                                if(Long.valueOf(m.getSnippet()) > now) {
+                                if(till > now) {
                                     if(shouldShow.get(p.getPokemonData().getPokemonIdValue())) {
-                                        publishProgress(m);
+                                        publishProgress(p);
+                                        map.put(String.valueOf(p.getEncounterId()), new WildPokemonExt(p, System.currentTimeMillis()+p.getTimeTillHiddenMs()));
                                     }else {
                                         Log.i(TAG, "Hidden: " + name);
                                     }
@@ -386,7 +393,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                                 }
 
                             }
-                            map.put(String.valueOf(p.getEncounterId()), m);
+
                         }
                     } catch (Exception e) {
                         if(e.getMessage().contains("502")) {
@@ -408,18 +415,19 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     }
                 }
 
-                return list;
+                return new ArrayList<>();
             };
 
             @Override
-            protected void onProgressUpdate(MarkerOptions... values) {
-                for (MarkerOptions m : values) {
-                    if(m.getSnippet() != null && m.getSnippet() != "") {
+            protected void onProgressUpdate(WildPokemonOuterClass.WildPokemon... values) {
+                for (WildPokemonOuterClass.WildPokemon p : values) {
+                    String name = PokemonIdOuterClass.PokemonId.valueOf(p.getPokemonData().getPokemonIdValue()).name();
+                    MarkerOptions m = new MarkerOptions()
+                            .position(new LatLng(p.getLatitude(), p.getLongitude()))
+                            .title(name)
+                            .icon(BitmapDescriptorFactory.fromResource(getResourseId("prefix_" + p.getPokemonData().getPokemonIdValue(), "drawable")));
                         Marker mh = mMap.addMarker(m);
-                        markers.add(mh);
-                    }
-                    vCircle.setCenter(m.getPosition());
-
+                        markers.put(String.valueOf(p.getEncounterId()), mh);
                 }
             }
 
@@ -549,7 +557,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         h.postDelayed(new Runnable(){
             public void run(){
-
+                /*
                 Iterator<Marker> i = markers.iterator();
                 while (i.hasNext()) {
                     Marker m = i.next(); // must be called before you can call i.remove()
@@ -568,6 +576,35 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         int seconds = difference - minutes * 60;
                         m.setTitle( String.format("%02d:%02d", minutes, seconds));
                     }
+                }
+                */
+
+
+
+                Iterator it = markers.entrySet().iterator();
+                while (it.hasNext()) {
+                    Map.Entry<String, Marker> pair = (Map.Entry)it.next();
+                    Marker m = pair.getValue();
+                    long now = System.currentTimeMillis();
+                    WildPokemonExt p = map.get(pair.getKey());
+                    long till = p.timestampHidden;
+                    if( till < now) {
+                        m.remove();
+                    }else {
+                        int difference = (int)(till - now);
+                        difference = difference / 1000;
+                        int minutes = (int) Math.floor(difference / 60);
+
+                        int seconds = difference - minutes * 60;
+                        m.setSnippet( String.format("%02d:%02d", minutes, seconds));
+                        Log.i(m.getTitle(), m.getSnippet());
+
+                        if(mSelectedMarker!= null && m.getId().equals(mSelectedMarker.getId())) {
+                            mSelectedMarker = m;
+
+                        }
+                    }
+                    //it.remove(); // avoids a ConcurrentModificationException
                 }
                 /*
                 Log.d(TAG, "markers: " + markers.size());
@@ -588,6 +625,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if(mSelectedMarker != null) {
                     mSelectedMarker.showInfoWindow();
                 }
+
 
                 /*
                 vAnimator.cancel();
