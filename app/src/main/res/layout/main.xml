@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <EditText
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="textPersonName"
+        android:ems="10"
+        android:id="@+id/editUsername"
+        android:hint="username" />
+
+    <EditText
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:inputType="textPassword"
+android:ems="10"
+android:id="@+id/editPassword"
+android:hint="password" />
+
+    <Button
+        android:text="Login"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/login" />
+
+    <ToggleButton
+        android:text="ReverseScan"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/reverse"
+        android:textOff="Reverse Off"
+        android:textOn="Reverse On"
+        android:checked="false" />
+
+</LinearLayout>
