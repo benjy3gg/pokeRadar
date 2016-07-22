@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">pokeRadar</string>
-    <string name="title_activity_maps">Map</string>
+    <string name="title_activity_maps">pokeRadar</string>
 </resources>

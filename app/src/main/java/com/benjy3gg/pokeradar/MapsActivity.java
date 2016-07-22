@@ -436,7 +436,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
         if (mMap != null) {
             if(firstLocationUpdate) {
+                showPopup();
                 setupTimers(mCurrentlocation);
+                firstLocationUpdate = false;
             }
 
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(mCurrentlocation, 15));
@@ -509,7 +511,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
 
         });*/
-        showPopup();
 
         LatLng loc = new LatLng(locationManager.getLastKnownLocation("gps").getLatitude(), locationManager.getLastKnownLocation("gps").getLongitude());
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(loc, 15));
@@ -528,6 +529,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     mapFragment.getView().animate().alpha(1).setDuration(500).start();
                     mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
                     rl.requestLayout();
+                    wm.updateViewLayout(rl, params);
                 }
             }
         });
