@@ -250,7 +250,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             initializeFragment();
         } catch (Exception e) {
             // failed to login, invalid credentials, auth issue or server issue.
-            Toast.makeText(this, "Wrong username or password", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Login Error, probably down!", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -319,7 +319,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 HashMap<String, MarkerOptions> map = new HashMap<>();
                 //y + 1, x +2 seems good
                 //maybe make the search algorithm smarter -> search first where last poke expired
-                //change grid to spiral or atleast change the order
+                //active -> change grid to spiral or atleast change the order
                 //calculation in for-loop allows movement of the user during scan!!!
                 List<LatLng> loc_list = new ArrayList<>();
                 for (int y = -5; y <= 5; y += 1) {
@@ -378,7 +378,22 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                             map.put(String.valueOf(p.getEncounterId()), m);
                         }
                     } catch (Exception e) {
-                        Log.d(TAG, "Error Transfering:" + e);
+                        if(e.getMessage().contains("502")) {
+                            Log.d(TAG, "Error:" + e);
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Toast.makeText(MapsActivity.this, "Servers are probably down", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+
+                            try {
+                                Thread.sleep(10000);
+                            } catch (InterruptedException e1) {
+                                e1.printStackTrace();
+                            }
+                        }
+
                     }
                 }
 
