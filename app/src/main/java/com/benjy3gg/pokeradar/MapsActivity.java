@@ -85,6 +85,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private MapFragment mapFragment;
     private EditText editUsername;
     private EditText editPassword;
+    private EditText editApikey;
     private Marker mSelectedMarker;
     private Marker mPositionMarker;
     private ValueAnimator vAnimator;
@@ -103,11 +104,14 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         editUsername = (EditText)findViewById(R.id.editUsername);
         editPassword = (EditText)findViewById(R.id.editPassword);
+        //editApikey = (EditText)findViewById(R.id.editApi);
         final String username = sharedPref.getString("username", "");
         final String password = sharedPref.getString("password", "");
+        //final String apikey = sharedPref.getString("apikey", "");
         if(!username.equals("") && !password.equals("")) {
             editUsername.setText(username);
             editPassword.setText(password);
+            //editApikey.setText(apikey);
         }
 
         Button btn = (Button)findViewById(R.id.login);
@@ -136,6 +140,16 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
             }
         });
+
+        Button settings = (Button)findViewById(R.id.settings);
+        settings.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MapsActivity.this, ListActivity.class);
+                startActivity(intent);
+            }
+        });
+
 
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
@@ -301,12 +315,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             @Override
             protected List<MarkerOptions> doInBackground(LatLng... params) {
                 final List<MarkerOptions> list = new ArrayList<>();
-                LatLng loc = params[0];
-                LatLng search_loc;
+                final LatLng loc = params[0];
                 HashMap<String, MarkerOptions> map = new HashMap<>();
                 //y + 1, x +2 seems good
                 //maybe make the search algorithm smarter -> search first where last poke expired
                 //change grid to spiral or atleast change the order
+                //calculation in for-loop allows movement of the user during scan!!!
                 List<LatLng> loc_list = new ArrayList<>();
                 for (int y = -5; y <= 5; y += 1) {
                     for (int x = -6; x <= 6; x += 2) {
@@ -314,8 +328,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         double lat = loc.latitude + y * 0.001 + random;
                         double new_x = (x * 0.001 + random) / Math.cos(loc.longitude);
                         double lng = loc.longitude + new_x;
-                        search_loc = new LatLng(lat, lng);
-                        loc_list.add(search_loc);
+                        loc_list.add(new LatLng(lat, lng));
                     }
                 }
 
@@ -323,53 +336,52 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     @Override
                     public int compare(LatLng o1, LatLng o2) {
                         float[] results = new float[1];
-                        Location.distanceBetween(o1.latitude, o1.longitude,
+                        Location.distanceBetween(loc.latitude, loc.longitude,
+                                o1.latitude, o1.longitude, results);
+                        float d1 = results[0];
+                        Location.distanceBetween(loc.latitude, loc.longitude,
                                 o2.latitude, o2.longitude, results);
-                        return (int)results[0];
+                        float d2 = results[0];
+
+                        return Float.compare(d1, d2);
                     }
                 });
 
-                for (int y = -5; y <= 5; y += 1) {
-                    for (int x = -6; x <= 6; x += 2) {
-                        try {
-                            Thread.sleep(1000);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                        double random = new Random().nextDouble() * 0.000175;
-                        double lat = loc.latitude + y * 0.001 + random;
-                        double new_x = (x * 0.001 + random) / Math.cos(loc.longitude);
-                        double lng = loc.longitude + new_x ;
-                        search_loc = new LatLng(lat, lng);
-                        //mMap.addMarker(new MarkerOptions().position(new LatLng(search_loc.latitude, search_loc.longitude)));
-                        go.setLocation(search_loc.latitude, search_loc.longitude, 0);
-                        publishProgress(new MarkerOptions().position(new LatLng(search_loc.latitude, search_loc.longitude)));
-                        try {
-                            Collection<WildPokemonOuterClass.WildPokemon> poke = go.getMap().getMapObjects().getWildPokemons();
-                            //TODO: Add notification for CatchablePokemon?
-                            for (WildPokemonOuterClass.WildPokemon p : poke) {
-                                String name = PokemonIdOuterClass.PokemonId.valueOf(p.getPokemonData().getPokemonIdValue()).name();
-                                Log.d(TAG, "Found: " + name);
-                                MarkerOptions m = new MarkerOptions()
-                                        .position(new LatLng(p.getLatitude(), p.getLongitude()))
-                                        .title(name + ", bis: " + p.getTimeTillHiddenMs()/1000)
-                                        .icon(BitmapDescriptorFactory.fromResource(getResourseId("prefix_" + p.getPokemonData().getPokemonIdValue())))
-                                        .snippet(""+(System.currentTimeMillis()+p.getTimeTillHiddenMs()));
-                                if(map.get(String.valueOf(p.getEncounterId())) == null) {
-                                    long now = System.currentTimeMillis();
-                                    if(Long.valueOf(m.getSnippet()) > now) {
-                                        publishProgress(m);
-                                    }
-
-                                    list.add(m);
+                for(LatLng search_loc : loc_list) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    //mMap.addMarker(new MarkerOptions().position(new LatLng(search_loc.latitude, search_loc.longitude)));
+                    go.setLocation(search_loc.latitude, search_loc.longitude, 0);
+                    publishProgress(new MarkerOptions().position(new LatLng(search_loc.latitude, search_loc.longitude)));
+                    try {
+                        Collection<WildPokemonOuterClass.WildPokemon> poke = go.getMap().getMapObjects().getWildPokemons();
+                        //TODO: Add notification for CatchablePokemon?
+                        for (WildPokemonOuterClass.WildPokemon p : poke) {
+                            String name = PokemonIdOuterClass.PokemonId.valueOf(p.getPokemonData().getPokemonIdValue()).name();
+                            Log.d(TAG, "Found: " + name);
+                            MarkerOptions m = new MarkerOptions()
+                                    .position(new LatLng(p.getLatitude(), p.getLongitude()))
+                                    .title(name + ", bis: " + p.getTimeTillHiddenMs()/1000)
+                                    .icon(BitmapDescriptorFactory.fromResource(getResourseId("prefix_" + p.getPokemonData().getPokemonIdValue(), "drawable")))
+                                    .snippet(""+(System.currentTimeMillis()+p.getTimeTillHiddenMs()));
+                            if(map.get(String.valueOf(p.getEncounterId())) == null) {
+                                long now = System.currentTimeMillis();
+                                if(Long.valueOf(m.getSnippet()) > now) {
+                                    publishProgress(m);
                                 }
-                                map.put(String.valueOf(p.getEncounterId()), m);
+
+                                list.add(m);
                             }
-                        } catch (Exception e) {
-                            Log.d(TAG, "Error Transfering:" + e);
+                            map.put(String.valueOf(p.getEncounterId()), m);
                         }
+                    } catch (Exception e) {
+                        Log.d(TAG, "Error Transfering:" + e);
                     }
                 }
+
                 return list;
             };
 
@@ -477,6 +489,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     fullscreen = false;
                     img.animate().alpha(1).setDuration(500).start();
                     mapFragment.getView().animate().alpha(0).setDuration(500).start();
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
                 }
                 wm.updateViewLayout(rl, params);
             }
@@ -493,9 +506,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     } catch (Exception e) {
                         Log.e(TAG, "Error getting reverse location");
                     }
-                    mSelectedMarker = marker;
                     return false;
                 }
+                mSelectedMarker = marker;
                 return false;
             }
         });
@@ -548,14 +561,15 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
-
-    public int getResourseId(String pVariableName)
+    public int getResourseId(String pVariableName, String pType)
     {
         try {
-            return getResources().getIdentifier(pVariableName, "drawable", getPackageName());
+            return getResources().getIdentifier(pVariableName, pType, getPackageName());
         } catch (Exception e) {
             e.printStackTrace();
             return -1;
         }
     }
+
+
 }
