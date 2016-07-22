@@ -1,10 +1,13 @@
 package com.benjy3gg.pokeradar;
 
+import android.*;
+import android.Manifest;
 import android.animation.IntEvaluator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.location.Address;
@@ -18,6 +21,8 @@ import android.os.Build;
 import android.os.Handler;
 import android.provider.Settings;
 import android.os.Bundle;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -66,11 +71,12 @@ import android.widget.RelativeLayout;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
-public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, LocationListener{
+public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, LocationListener {
 
     private GoogleMap mMap;
     PokemonGo go;
-    private static int OVERLAY_PERMISSION_REQ_CODE = 1234;
+    private int OVERLAY_PERMISSION_REQ_CODE = 1234;
+    private static final int GPS_PERMISSION_REQ_CODE = 1235;
     String TAG = "PENIS";
     OkHttpClient client;
     RequestEnvelopeOuterClass.RequestEnvelope.AuthInfo auth;
@@ -109,26 +115,26 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         sharedPref = getSharedPreferences("credentials", Context.MODE_PRIVATE);
 
-        editUsername = (EditText)findViewById(R.id.editUsername);
-        editPassword = (EditText)findViewById(R.id.editPassword);
-        editApikey = (EditText)findViewById(R.id.editApi);
+        editUsername = (EditText) findViewById(R.id.editUsername);
+        editPassword = (EditText) findViewById(R.id.editPassword);
+        editApikey = (EditText) findViewById(R.id.editApi);
         editApikey.setVisibility(View.INVISIBLE);
         final String username = sharedPref.getString("username", "");
         final String password = sharedPref.getString("password", "");
         //final String apikey = sharedPref.getString("apikey", "");
-        if(!username.equals("") && !password.equals("")) {
+        if (!username.equals("") && !password.equals("")) {
             editUsername.setText(username);
             editPassword.setText(password);
             //editApikey.setText(apikey);
         }
 
-        for(int i=1; i <= 151; i++) {
-            shouldNotify.add(sharedPref.getBoolean("notify_"+i, true));
-            shouldShow.add(sharedPref.getBoolean("show_"+i, true));
+        for (int i = 1; i <= 151; i++) {
+            shouldNotify.add(sharedPref.getBoolean("notify_" + i, true));
+            shouldShow.add(sharedPref.getBoolean("show_" + i, true));
         }
 
-        Button btn = (Button)findViewById(R.id.login);
-        final ToggleButton reverse = (ToggleButton)findViewById(R.id.reverse);
+        Button btn = (Button) findViewById(R.id.login);
+        final ToggleButton reverse = (ToggleButton) findViewById(R.id.reverse);
         reverse.setVisibility(View.INVISIBLE);
         reverse.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
@@ -140,21 +146,49 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
 
         allowOverlay();
+
+        // Here, thisActivity is the current activity
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.READ_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED) {
+
+            // Should we show an explanation?
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                    Manifest.permission.READ_CONTACTS)) {
+
+                // Show an expanation to the user *asynchronously* -- don't block
+                // this thread waiting for the user's response! After the user
+                // sees the explanation, try again to request the permission.
+
+            } else {
+
+                // No explanation needed, we can request the permission.
+
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                        GPS_PERMISSION_REQ_CODE);
+
+                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
+                // app-defined int constant. The callback method gets the
+                // result of the request.
+            }
+        }
+
         vAnimator = new ValueAnimator();
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 String username_e = editUsername.getText().toString();
                 String password_e = editPassword.getText().toString();
-                if(!username_e.equals("") || !password_e.equals("")) {
+                if (!username_e.equals("") || !password_e.equals("")) {
                     initializeGo(username_e, password_e);
-                }else {
+                } else {
                     Toast.makeText(MapsActivity.this, "Wrong credentials", Toast.LENGTH_SHORT).show();
                 }
             }
         });
 
-        Button settings = (Button)findViewById(R.id.settings);
+        Button settings = (Button) findViewById(R.id.settings);
         settings.setVisibility(View.INVISIBLE);
         settings.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -165,8 +199,32 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
 
 
-
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case GPS_PERMISSION_REQ_CODE: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    initializeGPS();
+                    // permission was granted, yay! Do the
+                    // contacts-related task you need to do.
+
+                } else {
+                    Toast.makeText(this, "No GPS Permission granted", Toast.LENGTH_SHORT).show();
+                    // permission denied, boo! Disable the
+                    // functionality that depends on this permission.
+                }
+                return;
+            }
+
+            // other 'case' lines to check for other
+            // permissions this app might request
+        }
     }
 
     public void initializeFragment() {
@@ -188,7 +246,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     protected void onPause() {
         super.onPause();
-        if(mapFragment != null) {
+        if (mapFragment != null) {
             mapFragment.onResume();
         }
         Log.d(TAG, "paused");
@@ -208,7 +266,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         DisplayMetrics metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
         params.width = WindowManager.LayoutParams.MATCH_PARENT;
-        params.height = Math.round(metrics.heightPixels/2);
+        params.height = Math.round(metrics.heightPixels / 2);
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
 
         wm.addView(rl, params);
@@ -240,7 +298,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             if (location != null) {
                 onLocationChanged(location);
             }
-        }catch (SecurityException e) {
+        } catch (SecurityException e) {
             Log.e(TAG, "SECURITY EXCEPTION: " + e.getMessage());
         }
 
@@ -271,16 +329,16 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onLocationChanged(Location location) {
         LatLng loc = new LatLng(location.getLatitude(), location.getLongitude());
-        if(myTask != null) {
+        if (myTask != null) {
             myTask.updateLocation(loc);
         }
-        if(mMap != null) {
+        if (mMap != null) {
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(loc, 15));
-            if(vCircle == null) {
+            if (vCircle == null && mMap != null) {
                 vCircle = mMap.addCircle(new CircleOptions().center(loc).strokeColor(Color.argb(32, 29, 132, 181)).radius(50));
             }
 
-            if(mPositionMarker == null) {
+            if (mPositionMarker == null) {
                 mPositionMarker = mMap.addMarker(new MarkerOptions().position(loc));
             }
             mPositionMarker.setPosition(loc);
@@ -360,7 +418,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     }
                 });
 
-                for(final LatLng search_loc : loc_list) {
+                for (final LatLng search_loc : loc_list) {
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {
@@ -371,6 +429,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
+                            if(vCircle != null)
                             vCircle.setCenter(search_loc);
                         }
                     });
@@ -379,16 +438,16 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         Collection<WildPokemonOuterClass.WildPokemon> poke = go.getMap().getMapObjects().getWildPokemons();
                         //TODO: Add notification for CatchablePokemon?
                         for (WildPokemonOuterClass.WildPokemon p : poke) {
-                            if(map.get(String.valueOf(p.getEncounterId())) == null) {
+                            if (map.get(String.valueOf(p.getEncounterId())) == null) {
                                 PokemonDataOuterClass.PokemonData f_poke = p.getPokemonData();
                                 String name = PokemonIdOuterClass.PokemonId.valueOf(p.getPokemonData().getPokemonIdValue()).name();
-                                long till = System.currentTimeMillis()+p.getTimeTillHiddenMs();
+                                long till = System.currentTimeMillis() + p.getTimeTillHiddenMs();
                                 long now = System.currentTimeMillis();
-                                if(till > now) {
-                                    if(shouldShow.get(p.getPokemonData().getPokemonIdValue())) {
+                                if (till > now) {
+                                    if (shouldShow.get(p.getPokemonData().getPokemonIdValue())) {
                                         publishProgress(p);
-                                        map.put(String.valueOf(p.getEncounterId()), new WildPokemonExt(p, System.currentTimeMillis()+p.getTimeTillHiddenMs()));
-                                    }else {
+                                        map.put(String.valueOf(p.getEncounterId()), new WildPokemonExt(p, System.currentTimeMillis() + p.getTimeTillHiddenMs()));
+                                    } else {
                                         Log.i(TAG, "Hidden: " + name);
                                     }
 
@@ -398,7 +457,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                         }
                     } catch (Exception e) {
-                        if(e.getMessage().contains("502")) {
+                        if (e.getMessage().contains("502")) {
                             Log.d(TAG, "Error:" + e);
                             runOnUiThread(new Runnable() {
                                 @Override
@@ -418,7 +477,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
 
                 return new ArrayList<>();
-            };
+            }
+
+            ;
 
             @Override
             protected void onProgressUpdate(WildPokemonOuterClass.WildPokemon... values) {
@@ -428,8 +489,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                             .position(new LatLng(p.getLatitude(), p.getLongitude()))
                             .title(name)
                             .icon(BitmapDescriptorFactory.fromResource(getResourseId("prefix_" + p.getPokemonData().getPokemonIdValue(), "drawable")));
-                        Marker mh = mMap.addMarker(m);
-                        markers.put(String.valueOf(p.getEncounterId()), mh);
+                    Marker mh = mMap.addMarker(m);
+                    markers.put(String.valueOf(p.getEncounterId()), mh);
                 }
             }
 
@@ -494,7 +555,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         });*/
         showPopup();
-        initializeGPS();
+
         LatLng loc = new LatLng(locationManager.getLastKnownLocation("gps").getLatitude(), locationManager.getLastKnownLocation("gps").getLongitude());
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(loc, 15));
 
