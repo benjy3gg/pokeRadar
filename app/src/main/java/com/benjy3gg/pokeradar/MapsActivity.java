@@ -590,6 +590,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     long till = p.timestampHidden;
                     if( till < now) {
                         m.remove();
+                        it.remove();
                     }else {
                         int difference = (int)(till - now);
                         difference = difference / 1000;
@@ -597,12 +598,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                         int seconds = difference - minutes * 60;
                         m.setSnippet( String.format("%02d:%02d", minutes, seconds));
-                        Log.i(m.getTitle(), m.getSnippet());
+                        //Log.i(m.getTitle(), m.getSnippet());
 
-                        if(mSelectedMarker!= null && m.getId().equals(mSelectedMarker.getId())) {
-                            mSelectedMarker = m;
-
-                        }
                     }
                     //it.remove(); // avoids a ConcurrentModificationException
                 }
