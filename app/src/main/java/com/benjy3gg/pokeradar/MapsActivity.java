@@ -93,6 +93,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Circle vCircle;
     private SharedPreferences sharedPref;
     private boolean mDoReverse = false;
+    public HashMap<String, MarkerOptions> map = new HashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -317,7 +318,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             protected List<MarkerOptions> doInBackground(LatLng... params) {
                 final List<MarkerOptions> list = new ArrayList<>();
                 final LatLng loc = params[0];
-                HashMap<String, MarkerOptions> map = new HashMap<>();
                 //y + 1, x +2 seems good
                 //maybe make the search algorithm smarter -> search first where last poke expired
                 //active -> change grid to spiral or atleast change the order
