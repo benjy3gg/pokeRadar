@@ -1,6 +1,8 @@
 package com.benjy3gg.pokeradar;
 
 import android.Manifest;
+import android.animation.Animator;
+import android.animation.IntEvaluator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.Intent;
@@ -22,11 +24,15 @@ import android.os.Bundle;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Base64;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 
+import com.etiennelawlor.discreteslider.library.ui.DiscreteSlider;
+import com.google.android.gms.auth.api.Auth;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
@@ -39,10 +45,14 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polygon;
 import com.google.android.gms.maps.model.PolygonOptions;
+import com.google.protobuf.CodedOutputStream;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.pokegoapi.api.PokemonGo;
 import com.pokegoapi.auth.PTCLogin;
 import com.pokegoapi.exceptions.LoginFailedException;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -63,6 +73,7 @@ import okhttp3.OkHttpClient;
 
 import android.os.StrictMode;
 import android.view.WindowManager;
+import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
@@ -88,6 +99,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     boolean fullscreen = false;
     long lastPressTime = 0;
     RelativeLayout rl;
+    RelativeLayout v;
     private WindowManager.LayoutParams params;
     private WindowManager wm;
     private ImageView img;
@@ -115,6 +127,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Handler updateHandler;
     private int updateDelay;
     private boolean firstLocationUpdate = true;
+    private RequestEnvelopeOuterClass.RequestEnvelope.AuthInfo auth_l;
+    private Button btnToken;
+    private DiscreteSlider sliderWidth;
+    private DiscreteSlider sliderHeight;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -136,6 +152,44 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     public void setupLayout() {
         sharedPref = getSharedPreferences("credentials", Context.MODE_PRIVATE);
+
+        String loadedAuth = sharedPref.getString("auth", null);
+        if(loadedAuth != null) {
+            try {
+                auth_l = RequestEnvelopeOuterClass.RequestEnvelope.AuthInfo.parseFrom(Base64.decode(loadedAuth, Base64.DEFAULT));
+                btnToken = (Button) findViewById(R.id.loginToken);
+                if(auth_l != null) {
+                    btnToken.setEnabled(true);
+                    btnToken.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            initializeGo(null, null, auth_l);
+                        }
+                    });
+                }else {
+                    btnToken.setEnabled(false);
+                }
+            } catch (InvalidProtocolBufferException e) {
+                e.printStackTrace();
+            }
+        }
+
+        sliderWidth = (DiscreteSlider)findViewById(R.id.sliderWidth);
+        sliderWidth.setTickMarkCount(6);
+        sliderWidth.setOnDiscreteSliderChangeListener(new DiscreteSlider.OnDiscreteSliderChangeListener() {
+            @Override
+            public void onPositionChanged(int position) {
+                spanX = position+1;
+            }
+        });
+        sliderHeight = (DiscreteSlider)findViewById(R.id.sliderHeight);
+        sliderHeight.setTickMarkCount(6);
+        sliderHeight.setOnDiscreteSliderChangeListener(new DiscreteSlider.OnDiscreteSliderChangeListener() {
+            @Override
+            public void onPositionChanged(int position) {
+                spanY = position+1;
+            }
+        });
 
         editUsername = (EditText) findViewById(R.id.editUsername);
         editPassword = (EditText) findViewById(R.id.editPassword);
@@ -174,7 +228,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 String username_e = editUsername.getText().toString();
                 String password_e = editPassword.getText().toString();
                 if (!username_e.equals("") || !password_e.equals("")) {
-                    initializeGo(username_e, password_e);
+                    initializeGo(username_e, password_e, null);
                 } else {
                     Toast.makeText(MapsActivity.this, "Wrong credentials", Toast.LENGTH_SHORT).show();
                 }
@@ -195,29 +249,22 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void requestGpsPermission() {
         // Here, thisActivity is the current activity
         if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.READ_CONTACTS)
+                Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
 
             // Should we show an explanation?
             if (ActivityCompat.shouldShowRequestPermissionRationale(this,
                     Manifest.permission.READ_CONTACTS)) {
 
-                // Show an expanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
 
             } else {
-
-                // No explanation needed, we can request the permission.
 
                 ActivityCompat.requestPermissions(this,
                         new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                         GPS_PERMISSION_REQ_CODE);
-
-                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
-                // app-defined int constant. The callback method gets the
-                // result of the request.
             }
+        } else {
+            initializeGPS();
         }
     }
 
@@ -225,38 +272,45 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         myTask = new MyTimerTask(loc);
         myTimer = new Timer();
 
-        myTimer.schedule(myTask, 0, 45*1000);
+        myTimer.schedule(myTask, 0, 45 * 1000);
 
         updateHandler = new Handler();
         updateDelay = 1000; //milliseconds
 
-        updateHandler.postDelayed(new Runnable(){
-            public void run(){
+        updateHandler.postDelayed(new Runnable() {
+            public void run() {
                 Iterator it = markers.entrySet().iterator();
                 while (it.hasNext()) {
-                    Map.Entry<String, Marker> pair = (Map.Entry)it.next();
+                    Map.Entry<String, Marker> pair = (Map.Entry) it.next();
                     Marker m = pair.getValue();
                     long now = System.currentTimeMillis();
                     WildPokemonExt p = map.get(pair.getKey());
                     long till = p.timestampHidden;
-                    if( till < now) {
+                    if (till < now) {
                         m.remove();
                         it.remove();
-                    }else {
-                        int difference = (int)(till - now);
+                    } else {
+                        int difference = (int) (till - now);
                         difference = difference / 1000;
                         int minutes = (int) Math.floor(difference / 60);
 
                         int seconds = difference - minutes * 60;
-                        m.setSnippet( String.format("%02d:%02d", minutes, seconds));
+                        m.setSnippet(String.format("%02d:%02d", minutes, seconds));
                         //Log.i(m.getTitle(), m.getSnippet());
 
                     }
                     //it.remove(); // avoids a ConcurrentModificationException
                 }
-                if(mSelectedMarker != null) {
+                if (mSelectedMarker != null) {
                     mSelectedMarker.showInfoWindow();
                 }
+
+                PolygonOptions options = calculateBoundingBox(mCurrentlocation);
+                //TODO: maybe update points instead of removing the rectangle
+                if (vPolygon != null) {
+                    vPolygon.remove();
+                }
+                vPolygon = mMap.addPolygon(options);
 
                 updateHandler.postDelayed(this, updateDelay);
             }
@@ -271,10 +325,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 // If request is cancelled, the result arrays are empty.
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    initializeGPS();
                     // permission was granted, yay! Do the
                     // contacts-related task you need to do.
-
+                    initializeGPS();
                 } else {
                     Toast.makeText(this, "No GPS Permission granted", Toast.LENGTH_SHORT).show();
                     // permission denied, boo! Disable the
@@ -290,19 +343,17 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     public void initializeFragment() {
         rl = new RelativeLayout(this);
-        RelativeLayout v = (RelativeLayout) getLayoutInflater().inflate(R.layout.activity_maps, rl);
+        v = (RelativeLayout) getLayoutInflater().inflate(R.layout.activity_maps, rl);
         img = new ImageView(this);
         img.setImageResource(R.drawable.pokeball);
-        RelativeLayout.LayoutParams p = new RelativeLayout.LayoutParams(150,150);
-        p.addRule(RelativeLayout.BELOW, R.id.map);
+        RelativeLayout.LayoutParams p = new RelativeLayout.LayoutParams(150, 150);
+        //p.addRule(RelativeLayout.BELOW, R.id.map);
         img.setLayoutParams(p);
         img.animate().alpha(1).setDuration(10).start();
         img.requestLayout();
-        rl.addView(img);
         mapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.map);
         //getFragmentManager().beginTransaction().detach(mapFragment).commit();
         mapFragment.getMapAsync(this);
-
     }
 
     @Override
@@ -315,23 +366,28 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         //moveTaskToBack(true);
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+    }
+
     public void showPopup() {
-        params = new WindowManager.LayoutParams(
-                150,
-                150,
-                WindowManager.LayoutParams.TYPE_SYSTEM_ALERT,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                        | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
-                PixelFormat.TRANSLUCENT);
-        params.gravity = Gravity.RIGHT | Gravity.TOP;
         DisplayMetrics metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
-        params.width = WindowManager.LayoutParams.MATCH_PARENT;
-        params.height = Math.round(metrics.heightPixels / 2);
+        params = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                Math.round(metrics.heightPixels / 2),
+                WindowManager.LayoutParams.TYPE_PHONE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSLUCENT);
+        params.gravity = Gravity.TOP | Gravity.LEFT;
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
 
         wm.addView(rl, params);
+        params.width = 150;
+        params.height = 150;
+        wm.addView(img, params);
+
     }
 
     public void allowOverlay() {
@@ -355,8 +411,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
 
         try {
+            locationManager.requestLocationUpdates("gps", 1000, 1, this);
             Location location = locationManager.getLastKnownLocation("gps");
-            locationManager.requestLocationUpdates("gps", 15 * 1000, 0, this);
             if (location != null) {
                 onLocationChanged(location);
             }
@@ -368,30 +424,38 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
-    public void initializeGo(String username, String password) {
+    public void initializeGo(String username, String password, RequestEnvelopeOuterClass.RequestEnvelope.AuthInfo auth) {
         client = new OkHttpClient();
         try {
-            //PTCLogin login = new PTCLogin(client);
-            //auth = login.login(username, password);
-            //go = new PokemonGo(auth, client);
-            //go.getMap().setUseCache(false);
+            if(auth != null) {
+                go = new PokemonGo(auth, client);
+            }else {
+                PTCLogin login = new PTCLogin(client);
+                auth = login.login(username, password);
+                go = new PokemonGo(auth, client);
+            }
+            go.getMap().setUseCache(false);
             //go.setLocation(48.6256072,9.2426758, 0.0);
             SharedPreferences.Editor editor = sharedPref.edit();
             editor.putString("username", username);
             editor.putString("password", password);
+            byte[] array = auth.toByteArray();
+            String saveThis = Base64.encodeToString(array, Base64.DEFAULT);
+            editor.putString("auth", saveThis);
             editor.apply();
 
             editUsername.setVisibility(View.INVISIBLE);
             editPassword.setVisibility(View.INVISIBLE);
             btn.setVisibility(View.INVISIBLE);
+            btnToken.setVisibility(View.INVISIBLE);
 
             initializeFragment();
-        //} catch (LoginFailedException e) {
+            } catch (LoginFailedException e) {
             // failed to login, invalid credentials, auth issue or server issue.
-        //    Toast.makeText(this, "Login Error, probably down!", Toast.LENGTH_LONG).show();
-        } catch (Exception e) {
-            Toast.makeText(this, "Some other error! " + e.getMessage(), Toast.LENGTH_LONG).show();
-        }
+                Toast.makeText(this, "Login Error, probably down!", Toast.LENGTH_LONG).show();
+            } catch (Exception e) {
+                Toast.makeText(this, "Some other error! " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
     }
 
     public PolygonOptions calculateBoundingBox(LatLng location) {
@@ -411,7 +475,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         //bottomLeft
         lat = location.latitude + spanY * 0.001;
-        new_x = (-1* spanX * 0.001) / Math.cos(location.longitude);
+        new_x = (-1 * spanX * 0.001) / Math.cos(location.longitude);
         lng = location.longitude + new_x;
         LatLng bottomLeft = new LatLng(lat, lng);
 
@@ -421,7 +485,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         lng = location.longitude + new_x;
         LatLng bottomRight = new LatLng(lat, lng);
 
-        return new PolygonOptions().add(topLeft).add(topRight).add(bottomRight).add(bottomLeft).add(topLeft).fillColor(Color.argb(32, 29, 132, 181)).strokeColor(Color.argb(32, 29, 132, 181));
+        return new PolygonOptions().add(topLeft).add(topRight).add(bottomRight).add(bottomLeft).add(topLeft).fillColor(Color.argb(8, 29, 132, 181)).strokeColor(Color.argb(32, 29, 132, 181));
     }
 
     @Override
@@ -429,27 +493,16 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         LatLng loc = new LatLng(location.getLatitude(), location.getLongitude());
         mCurrentlocation = loc;
 
-
-
         if (myTask != null) {
             myTask.updateLocation(mCurrentlocation);
         }
         if (mMap != null) {
-            if(firstLocationUpdate) {
-                showPopup();
-                setupTimers(mCurrentlocation);
+            if (firstLocationUpdate) {
                 firstLocationUpdate = false;
             }
 
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(mCurrentlocation, 15));
-            if (vCircle == null) {
-                vCircle = mMap.addCircle(new CircleOptions().center(mCurrentlocation).strokeColor(Color.argb(32, 29, 132, 181)).radius(50));
-            }
 
-            if(vPolygon == null) {
-                PolygonOptions options = calculateBoundingBox(mCurrentlocation);
-                vPolygon = mMap.addPolygon(options);
-            }
 
             if (mPositionMarker == null) {
                 mPositionMarker = mMap.addMarker(new MarkerOptions().position(mCurrentlocation));
@@ -485,55 +538,127 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
-        /*
-        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
-            @Override
-            public void onMapClick(LatLng latLng) {
-                Toast.makeText(MapsActivity.this, "Click", Toast.LENGTH_SHORT).show();
-                long pressTime = System.currentTimeMillis();
-                // If double click...
-                if (pressTime - lastPressTime <= 300) {
-                    Toast.makeText(MapsActivity.this, "DoubleClick", Toast.LENGTH_SHORT).show();
-                    Log.d("PENIS", "DoubleClick");
-                    if(!fullscreen) {
-                        DisplayMetrics metrics = new DisplayMetrics();
-                        getWindowManager().getDefaultDisplay().getMetrics(metrics);
-                        params.width = WindowManager.LayoutParams.MATCH_PARENT;
-                        params.height = Math.round(metrics.heightPixels/2);
-                        fullscreen = true;
-                    }else {
-                        params.width = 150;
-                        params.height = 150;
-                        fullscreen = false;
-                    }
-                    wm.updateViewLayout(rl, params);
-                }
-            }
-
-        });*/
-
-        LatLng loc = new LatLng(locationManager.getLastKnownLocation("gps").getLatitude(), locationManager.getLastKnownLocation("gps").getLongitude());
-        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(loc, 15));
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(mCurrentlocation, 15));
+        if (mPositionMarker == null) {
+            mPositionMarker = mMap.addMarker(new MarkerOptions().position(mCurrentlocation).alpha(0.5f));
+        }
+        mPositionMarker.setPosition(mCurrentlocation);
 
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
             @Override
             public void onMapClick(LatLng latLng) {
                 mSelectedMarker = null;
-                if(!fullscreen) {
-                    DisplayMetrics metrics = new DisplayMetrics();
-                    getWindowManager().getDefaultDisplay().getMetrics(metrics);
-                    params.width = WindowManager.LayoutParams.MATCH_PARENT;
-                    params.height = Math.round(metrics.heightPixels / 2);
-                    fullscreen = true;
-                    img.animate().alpha(1).setDuration(500).start();
-                    mapFragment.getView().animate().alpha(1).setDuration(500).start();
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
-                    rl.requestLayout();
-                    wm.updateViewLayout(rl, params);
-                }
             }
         });
 
+        /*
+        img.setOnTouchListener(new View.OnTouchListener() {
+            float dX, dY;
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                switch (event.getAction()) {
+
+                    case MotionEvent.ACTION_DOWN:
+
+                        dX = view.getX() - event.getRawX();
+                        dY = view.getY() - event.getRawY();
+                        break;
+
+                    case MotionEvent.ACTION_MOVE:
+
+                        view.animate()
+                                .x(event.getRawX() + dX)
+                                .y(event.getRawY() + dY)
+                                .setDuration(0)
+                                .start();
+                        break;
+                    default:
+                        return true;
+                }
+                return true;
+            }
+        });
+        */
+        img.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                MapsActivity.this.finish();
+                return true;
+            }
+        });
+        img.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (!fullscreen) {
+
+                    img.animate().alpha(1).setDuration(500).start();
+                    //rl.animate().alpha(1).translationX(0).setDuration(500).start();
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(mCurrentlocation, 15));
+                    mapFragment.getView().animate().translationX(0).setDuration(500).setListener(new Animator.AnimatorListener() {
+                        @Override
+                        public void onAnimationStart(Animator animator) {
+                            mapFragment.getView().setVisibility(View.VISIBLE);
+                            DisplayMetrics metrics = new DisplayMetrics();
+                            getWindowManager().getDefaultDisplay().getMetrics(metrics);
+                            params.width = WindowManager.LayoutParams.MATCH_PARENT;
+                            params.height = Math.round(metrics.heightPixels / 2);
+                            wm.updateViewLayout(rl, params);
+                        }
+
+                        @Override
+                        public void onAnimationEnd(Animator animator) {
+                            fullscreen = true;
+
+                        }
+
+                        @Override
+                        public void onAnimationCancel(Animator animator) {
+
+                        }
+
+                        @Override
+                        public void onAnimationRepeat(Animator animator) {
+
+                        }
+                    }).start();
+
+                } else {
+                    img.animate().alpha(1).setDuration(500).start();
+                    DisplayMetrics metrics = new DisplayMetrics();
+                    getWindowManager().getDefaultDisplay().getMetrics(metrics);
+                    //rl.animate().alpha(1).translationX(-metrics.widthPixels).setDuration(500).start();
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(mCurrentlocation, 15));
+                    mapFragment.getView().animate().translationX(-metrics.widthPixels).setDuration(500).setListener(new Animator.AnimatorListener() {
+                        @Override
+                        public void onAnimationStart(Animator animator) {
+
+                        }
+
+                        @Override
+                        public void onAnimationEnd(Animator animator) {
+                            fullscreen = false;
+                            params.width = 1;
+                            params.height = 1;
+                            wm.updateViewLayout(rl, params);
+                            mapFragment.getView().setVisibility(View.INVISIBLE);
+                        }
+
+                        @Override
+                        public void onAnimationCancel(Animator animator) {
+
+                        }
+
+                        @Override
+                        public void onAnimationRepeat(Animator animator) {
+
+                        }
+                    }).start();
+
+                }
+
+            }
+        });
+        /*
         mMap.setOnMapLongClickListener(new GoogleMap.OnMapLongClickListener() {
             @Override
             public void onMapLongClick(LatLng latLng) {
@@ -545,22 +670,21 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     params.width = WindowManager.LayoutParams.MATCH_PARENT;
                     params.height = Math.round(metrics.heightPixels/2);
                     fullscreen = true;
-                    img.animate().alpha(1).setDuration(500).start();
                     mapFragment.getView().animate().alpha(1).setDuration(500).start();
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(mCurrentlocation, 15));
                     rl.requestLayout();
                 }else {
                     params.width = 150;
                     params.height = 150;
                     fullscreen = false;
-                    img.animate().alpha(1).setDuration(500).start();
                     mapFragment.getView().animate().alpha(1).setDuration(500).start();
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(mCurrentlocation, 15));
                     rl.requestLayout();
                 }
                 wm.updateViewLayout(rl, params);
             }
         });
+        */
 
         mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
             @Override
@@ -581,10 +705,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         });
 
+        showPopup();
+        setupTimers(mCurrentlocation);
+
     }
 
-    public int getResourseId(String pVariableName, String pType)
-    {
+    public int getResourseId(String pVariableName, String pType) {
         try {
             return getResources().getIdentifier(pVariableName, pType, getPackageName());
         } catch (Exception e) {
@@ -627,6 +753,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 //maybe make the search algorithm smarter -> search first where last poke expired
                 //active -> change grid to spiral or atleast change the order
                 //calculation in for-loop allows movement of the user during scan!!!
+                /*
                 List<LatLng> loc_list = new ArrayList<>();
                 for (int y = -5; y <= 5; y += 1) {
                     for (int x = -6; x <= 6; x += 2) {
@@ -652,6 +779,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         return Float.compare(d1, d2);
                     }
                 });
+                */
 
                 for (int y = -spanY; y <= spanY; y += stepY) {
                     for (int x = -spanX; x <= spanX; x += stepX) {
@@ -673,17 +801,39 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         }
 
                         //mMap.addMarker(new MarkerOptions().position(new LatLng(search_loc.latitude, search_loc.longitude)));
-                        //go.setLocation(search_loc.latitude, search_loc.longitude, 0);
-                        final LatLng locf = new LatLng(search_loc.latitude, search_loc.longitude);
+                        go.setLocation(search_loc.latitude, search_loc.longitude, 0);
+                        //final LatLng locf = new LatLng(search_loc.latitude, search_loc.longitude);
+                        final LatLng circle_loc = search_loc;
 
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                mMap.addMarker(new MarkerOptions().position(new LatLng(locf.latitude, locf.longitude)));
+                                //mMap.addMarker(new MarkerOptions().position(new LatLng(locf.latitude, locf.longitude)));
+                                if(vCircle != null) {
+                                    vCircle.remove();
+                                    vAnimator.cancel();
+                                }
+                                vCircle = mMap.addCircle(new CircleOptions().center(circle_loc).strokeColor(Color.argb(16, 29, 132, 181)).radius(100));;
+                                vAnimator = new ValueAnimator();
+                                vAnimator.setRepeatCount(ValueAnimator.INFINITE);
+                                vAnimator.setRepeatMode(ValueAnimator.RESTART);  /* PULSE */
+                                vAnimator.setIntValues(0, 100);
+                                vAnimator.setDuration(500);
+                                vAnimator.setEvaluator(new IntEvaluator());
+                                vAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+                                vAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                                    @Override
+                                    public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                                        float animatedFraction = valueAnimator.getAnimatedFraction();
+                                        // Log.e("", "" + animatedFraction);
+                                        vCircle.setRadius(animatedFraction * 100);
+                                    }
+                                });
+                                vAnimator.start();
                             }
                         });
 
-                        /*
+
                         try {
                             Collection<WildPokemonOuterClass.WildPokemon> poke = go.getMap().getMapObjects().getWildPokemons();
                             //TODO: Add notification for CatchablePokemon?
@@ -724,7 +874,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                             }
 
                         }
-                        */
+
                     }
                 }
                 return new ArrayList<>();
