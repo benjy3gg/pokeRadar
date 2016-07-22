@@ -42,6 +42,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.Timer;
@@ -263,7 +264,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         if(mMap != null) {
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(loc, 15));
             if(vCircle == null) {
-                vCircle = mMap.addCircle(new CircleOptions().center(loc).strokeColor(Color.argb(32, 29, 132, 181)).radius(1));
+                vCircle = mMap.addCircle(new CircleOptions().center(loc).strokeColor(Color.argb(32, 29, 132, 181)).radius(50));
             }
 
             if(mPositionMarker == null) {
@@ -361,7 +362,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         //TODO: Add notification for CatchablePokemon?
                         for (WildPokemonOuterClass.WildPokemon p : poke) {
                             String name = PokemonIdOuterClass.PokemonId.valueOf(p.getPokemonData().getPokemonIdValue()).name();
-                            Log.d(TAG, "Found: " + name);
                             MarkerOptions m = new MarkerOptions()
                                     .position(new LatLng(p.getLatitude(), p.getLongitude()))
                                     .title(name + ", bis: " + p.getTimeTillHiddenMs()/1000)
@@ -373,7 +373,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                                     publishProgress(m);
                                 }
 
-                                list.add(m);
                             }
                             map.put(String.valueOf(p.getEncounterId()), m);
                         }
@@ -538,6 +537,28 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         h.postDelayed(new Runnable(){
             public void run(){
+
+                Iterator<Marker> i = markers.iterator();
+                while (i.hasNext()) {
+                    Marker m = i.next(); // must be called before you can call i.remove()
+
+                    long now = System.currentTimeMillis();
+                    if(Long.valueOf(m.getSnippet()) < now) {
+                        m.remove();
+                        Log.d(TAG, "before markers: " + markers.size());
+                        i.remove();
+                        Log.d(TAG, "after markers: " + markers.size());
+                    }else {
+                        int difference = (int)(Long.valueOf(m.getSnippet()) - now);
+                        difference = difference / 1000;
+                        int minutes = (int) Math.floor(difference / 60);
+
+                        int seconds = difference - minutes * 60;
+                        m.setTitle( String.format("%02d:%02d", minutes, seconds));
+                    }
+                }
+                /*
+                Log.d(TAG, "markers: " + markers.size());
                 for(Marker m : markers) {
                     long now = System.currentTimeMillis();
                     if(Long.valueOf(m.getSnippet()) < now) {
@@ -551,12 +572,15 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         m.setTitle( String.format("%02d:%02d", minutes, seconds));
                     }
                 }
+                */
                 if(mSelectedMarker != null) {
                     mSelectedMarker.showInfoWindow();
                 }
+
+                /*
                 vAnimator.cancel();
                 vAnimator.setRepeatCount(ValueAnimator.INFINITE);
-                vAnimator.setRepeatMode(ValueAnimator.RESTART);  /* PULSE */
+                vAnimator.setRepeatMode(ValueAnimator.RESTART);
                 vAnimator.setIntValues(0, 100);
                 vAnimator.setDuration(500);
                 vAnimator.setEvaluator(new IntEvaluator());
@@ -570,6 +594,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     }
                 });
                 vAnimator.start();
+                */
                 h.postDelayed(this, delay);
             }
         }, delay);
