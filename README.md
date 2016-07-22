@@ -10,3 +10,5 @@ If the Reverse button is turned on, each time you click on a Pokemon-marker you 
 
 If you longpress on the Mapview the app gets minimized and is still running in the background.
 To reopen just longpress on the pokeball.
+
+Shoutouts to [PokeGOAPI-Java](https://github.com/Grover-c13/PokeGOAPI-Java)
