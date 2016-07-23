@@ -12,6 +12,7 @@ import android.widget.SeekBar;
 
 public class VerticalSeekBar extends SeekBar {
 
+    private OnSeekBarChangeListener myListener;
     public VerticalSeekBar(Context context) {
         super(context);
     }
@@ -29,15 +30,14 @@ public class VerticalSeekBar extends SeekBar {
     }
 
     @Override
-    public synchronized void setProgress(int progress)  // it is necessary for calling setProgress on click of a button
-    {
-        super.setProgress(progress);
-        onSizeChanged(getWidth(), getHeight(), 0, 0);
-    }
-    @Override
     protected synchronized void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(heightMeasureSpec, widthMeasureSpec);
         setMeasuredDimension(getMeasuredHeight(), getMeasuredWidth());
+    }
+
+    @Override
+    public void setOnSeekBarChangeListener(OnSeekBarChangeListener mListener){
+        this.myListener = mListener;
     }
 
     protected void onDraw(Canvas c) {
@@ -55,10 +55,16 @@ public class VerticalSeekBar extends SeekBar {
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
+                if(myListener!=null)
+                    myListener.onStartTrackingTouch(this);
+                break;
             case MotionEvent.ACTION_MOVE:
-            case MotionEvent.ACTION_UP:
                 setProgress(getMax() - (int) (getMax() * event.getY() / getHeight()));
                 onSizeChanged(getWidth(), getHeight(), 0, 0);
+                myListener.onProgressChanged(this, getMax() - (int) (getMax() * event.getY() / getHeight()), true);
+                break;
+            case MotionEvent.ACTION_UP:
+                myListener.onStopTrackingTouch(this);
                 break;
 
             case MotionEvent.ACTION_CANCEL:

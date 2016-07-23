@@ -25,6 +25,7 @@ import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -34,6 +35,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -69,11 +71,14 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
     private Marker mLocationMarker;
     private Marker mSelectedMarker;
     private Polygon mPolygon;
+    private Circle mCircle;
     private SharedPreferences sharedPref;
     private int spanX;
     private int spanY;
     private int stepY;
     private int stepX;
+    private SeekBar mSeekBarHorizontal;
+    private VerticalSeekBar mSeekBarVertical;
 
     @SuppressWarnings("deprecation")
 
@@ -94,6 +99,50 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
         spanY = 3;
         stepX = 1;
         stepY = 1;
+
+        mSeekBarHorizontal = (SeekBar) v.findViewById(R.id.seekBarHorizontal);
+        mSeekBarVertical = (VerticalSeekBar) v.findViewById(R.id.seekBarVertical);
+
+        mSeekBarHorizontal.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                setSearchSpanX(seekBar.getProgress()+1);
+            }
+        });
+
+        mSeekBarVertical.setOnSeekBarChangeListener(new VerticalSeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                setSearchSpanY(seekBar.getProgress()+1);
+            }
+        });
+    }
+
+    public void setSearchSpanX(int spanX) {
+        this.spanX = spanX;
+        updateBoundingRect();
+    }
+
+    public void setSearchSpanY(int spanY) {
+        this.spanY = spanY;
+        updateBoundingRect();
     }
 
     public void getSetLastKnownLocation() {
@@ -252,7 +301,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
             if(mLocationMarker != null) {
                 mLocationMarker.remove();
             }
-            mMap.addMarker(new MarkerOptions().position(mCurrentLocation));
+            mLocationMarker = mMap.addMarker(new MarkerOptions().position(mCurrentLocation));
             updateBoundingRect();
         }
     }
@@ -265,7 +314,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
                 mPolygon.remove();
             }
 
-            mMap.addPolygon(polygonOptions);
+            mPolygon = mMap.addPolygon(polygonOptions);
         }
     }
 
@@ -361,7 +410,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
             if(mLocationMarker != null) {
                 mLocationMarker.remove();
             }
-            mMap.addMarker(new MarkerOptions().position(mCurrentLocation));
+            mLocationMarker = mMap.addMarker(new MarkerOptions().position(mCurrentLocation));
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(mCurrentLocation, 15));
         }
 
