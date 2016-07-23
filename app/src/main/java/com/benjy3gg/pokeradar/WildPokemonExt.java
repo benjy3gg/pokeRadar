@@ -12,6 +12,10 @@ public class WildPokemonExt {
     public WildPokemon pokemon;
     public long timestampHidden;
 
+    public WildPokemonExt() {
+
+    }
+
     public WildPokemonExt(WildPokemon pokemon, long timestampHidden) {
         this.pokemon = pokemon;
         this.timestampHidden = timestampHidden;

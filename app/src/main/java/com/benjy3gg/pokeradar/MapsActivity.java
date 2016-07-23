@@ -30,6 +30,7 @@ import android.util.Base64;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -52,6 +53,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.pokegoapi.api.PokemonGo;
 import com.pokegoapi.auth.PTCLogin;
 import com.pokegoapi.exceptions.LoginFailedException;
+import com.txusballesteros.bubbles.BubbleLayout;
+import com.txusballesteros.bubbles.BubblesManager;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -133,11 +136,14 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Button btnToken;
     private DiscreteSlider sliderWidth;
     private DiscreteSlider sliderHeight;
+    private BubblesManager mBubblesManager;
+    private BubbleLayout bubbleView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
+
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
 
@@ -153,9 +159,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     public void setupLayout() {
+
         sharedPref = getSharedPreferences("credentials", Context.MODE_PRIVATE);
         btnToken = (Button) findViewById(R.id.loginToken);
-        String loadedAuth = sharedPref.getString("auth", null);
+        final String loadedAuth = sharedPref.getString("auth", null);
         if(loadedAuth != null) {
             try {
                 auth_l = RequestEnvelopeOuterClass.RequestEnvelope.AuthInfo.parseFrom(Base64.decode(loadedAuth, Base64.DEFAULT));
@@ -165,7 +172,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     btnToken.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View view) {
-                            initializeGo(null, null, auth_l);
+                        Intent it = new Intent(MapsActivity.this, FetchService.class);
+                        it.putExtra("type", "login");
+                        it.putExtra("auth", loadedAuth);
+                        startService(it);
                         }
                     });
                 }else {
@@ -175,23 +185,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 e.printStackTrace();
             }
         }
-
-        sliderWidth = (DiscreteSlider)findViewById(R.id.sliderWidth);
-        sliderWidth.setTickMarkCount(6);
-        sliderWidth.setOnDiscreteSliderChangeListener(new DiscreteSlider.OnDiscreteSliderChangeListener() {
-            @Override
-            public void onPositionChanged(int position) {
-                spanX = position+1;
-            }
-        });
-        sliderHeight = (DiscreteSlider)findViewById(R.id.sliderHeight);
-        sliderHeight.setTickMarkCount(6);
-        sliderHeight.setOnDiscreteSliderChangeListener(new DiscreteSlider.OnDiscreteSliderChangeListener() {
-            @Override
-            public void onPositionChanged(int position) {
-                spanY = position+1;
-            }
-        });
 
         editUsername = (EditText) findViewById(R.id.editUsername);
         editPassword = (EditText) findViewById(R.id.editPassword);
@@ -230,7 +223,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 String username_e = editUsername.getText().toString();
                 String password_e = editPassword.getText().toString();
                 if (!username_e.equals("") || !password_e.equals("")) {
-                    initializeGo(username_e, password_e, null);
+                    Intent it = new Intent(MapsActivity.this, FetchService.class);
+                    it.putExtra("type", "login");
+                    it.putExtra("username", username_e);
+                    it.putExtra("password", password_e);
+                    startService(it);
                 } else {
                     Toast.makeText(MapsActivity.this, "Wrong credentials", Toast.LENGTH_SHORT).show();
                 }
@@ -266,7 +263,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         GPS_PERMISSION_REQ_CODE);
             }
         } else {
-            initializeGPS();
+
         }
     }
 
@@ -329,7 +326,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     // permission was granted, yay! Do the
                     // contacts-related task you need to do.
-                    initializeGPS();
                 } else {
                     Toast.makeText(this, "No GPS Permission granted", Toast.LENGTH_SHORT).show();
                     // permission denied, boo! Disable the
@@ -367,7 +363,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         Log.d(TAG, "paused");
         //moveTaskToBack(true);
     }
-    
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+    }
 
     public void showPopup() {
         DisplayMetrics metrics = new DisplayMetrics();
@@ -394,34 +394,13 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                         Uri.parse("package:" + getPackageName()));
                 startActivityForResult(intent, OVERLAY_PERMISSION_REQ_CODE);
+            }else {
+
             }
         }
     }
 
-    public void initializeGPS() {
-        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-        boolean enabled = locationManager
-                .isProviderEnabled(LocationManager.GPS_PROVIDER);
-
-        if (!enabled) {
-            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-            startActivity(intent);
-        }
-
-        try {
-            locationManager.requestLocationUpdates("gps", 5000, 100, this);
-            Location location = locationManager.getLastKnownLocation("gps");
-            if (location != null) {
-                onLocationChanged(location);
-            }
-        } catch (SecurityException e) {
-            Log.e(TAG, "SECURITY EXCEPTION: " + e.getMessage());
-        }
-
-        // Initialize the location fields
-
-    }
-
+    /*
     public void initializeGo(String username, String password, RequestEnvelopeOuterClass.RequestEnvelope.AuthInfo auth) {
         client = new OkHttpClient();
         try {
@@ -455,6 +434,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 Toast.makeText(this, "Some other error! " + e.getMessage(), Toast.LENGTH_LONG).show();
             }
     }
+    */
 
     public PolygonOptions calculateBoundingBox(LatLng location) {
 

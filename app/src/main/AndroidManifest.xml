@@ -42,6 +42,20 @@
             android:label="@string/app_name" >
         </activity>
 
+        <service
+            android:name=".PokeService"
+            android:exported="false"/>
+
+        <service
+            android:name=".FetchService"
+            android:exported="false"/>
+
+        <service
+            android:name=".ChatHeadService"
+            android:exported="false"/>
+
+
+
 
     </application>
 

@@ -26,4 +26,8 @@ dependencies {
     compile 'com.android.support:cardview-v7:24.1.0'
     compile 'com.android.support:gridlayout-v7:24.1.0'
     compile 'com.github.lawloretienne:discreteslider:0.0.6'
+    compile 'com.github.rehacktive:waspdb:1.1.1'
+    compile 'com.txusballesteros:bubbles:1.2.1'
+    compile 'com.snappydb:snappydb-lib:0.5.2'
+    compile 'com.esotericsoftware.kryo:kryo:2.24.0'
 }
