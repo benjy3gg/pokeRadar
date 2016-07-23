@@ -8,6 +8,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.location.Address;
@@ -152,12 +154,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     public void setupLayout() {
         sharedPref = getSharedPreferences("credentials", Context.MODE_PRIVATE);
-
+        btnToken = (Button) findViewById(R.id.loginToken);
         String loadedAuth = sharedPref.getString("auth", null);
         if(loadedAuth != null) {
             try {
                 auth_l = RequestEnvelopeOuterClass.RequestEnvelope.AuthInfo.parseFrom(Base64.decode(loadedAuth, Base64.DEFAULT));
-                btnToken = (Button) findViewById(R.id.loginToken);
+
                 if(auth_l != null) {
                     btnToken.setEnabled(true);
                     btnToken.setOnClickListener(new View.OnClickListener() {
@@ -365,11 +367,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         Log.d(TAG, "paused");
         //moveTaskToBack(true);
     }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-    }
+    
 
     public void showPopup() {
         DisplayMetrics metrics = new DisplayMetrics();
@@ -411,7 +409,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
 
         try {
-            locationManager.requestLocationUpdates("gps", 1000, 1, this);
+            locationManager.requestLocationUpdates("gps", 5000, 100, this);
             Location location = locationManager.getLastKnownLocation("gps");
             if (location != null) {
                 onLocationChanged(location);
@@ -783,11 +781,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 for (int y = -spanY; y <= spanY; y += stepY) {
                     for (int x = -spanX; x <= spanX; x += stepX) {
-                        try {
-                            Thread.sleep(500);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
                         double random = new Random().nextDouble() * 0.001;
                         random = 0.0;
                         double lat = loc.latitude + y * 0.001 + random;
@@ -885,10 +878,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             protected void onProgressUpdate(WildPokemonOuterClass.WildPokemon... values) {
                 for (WildPokemonOuterClass.WildPokemon p : values) {
                     String name = PokemonIdOuterClass.PokemonId.valueOf(p.getPokemonData().getPokemonIdValue()).name();
+                    Bitmap imageBitmap = BitmapFactory.decodeResource(getResources(),getResources().getIdentifier("prefix_" + p.getPokemonData().getPokemonIdValue(), "drawable", getPackageName()));
+                    Bitmap resizedBitmap = Bitmap.createScaledBitmap(imageBitmap, 96, 96, false);
                     MarkerOptions m = new MarkerOptions()
                             .position(new LatLng(p.getLatitude(), p.getLongitude()))
                             .title(name)
-                            .icon(BitmapDescriptorFactory.fromResource(getResourseId("prefix_" + p.getPokemonData().getPokemonIdValue(), "drawable")));
+                            .icon(BitmapDescriptorFactory.fromBitmap(resizedBitmap));
                     Marker mh = mMap.addMarker(m);
                     markers.put(String.valueOf(p.getEncounterId()), mh);
                 }
