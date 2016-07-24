@@ -195,14 +195,10 @@ public class ChatHeadService extends Service {
                         handler_longClick.removeCallbacks(runnable_longClick);
 
                         if(inBounded){
-                            if(MyDialog.active){
-                                MyDialog.myDialog.finish();
-                            }
-
                             stopService(new Intent(ChatHeadService.this, PokeService.class));
                             stopService(new Intent(ChatHeadService.this, FetchService.class));
 
-                            stopService(new Intent(ChatHeadService.this, ChatHeadService.class));
+                            onDestroy();
                             inBounded = false;
                             break;
                         }

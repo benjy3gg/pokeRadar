@@ -1,14 +1,9 @@
 package com.benjy3gg.pokeradar;
 
-import android.animation.IntEvaluator;
-import android.animation.ValueAnimator;
 import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -17,39 +12,24 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Base64;
 import android.util.Log;
-import android.view.View;
-import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.Toast;
 
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
-import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.android.gms.maps.model.PolygonOptions;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.pokegoapi.api.PokemonGo;
 import com.pokegoapi.auth.PTCLogin;
 import com.pokegoapi.exceptions.LoginFailedException;
-import com.snappydb.DB;
-import com.snappydb.DBFactory;
-import com.snappydb.SnappydbException;
 
 import net.rehacktive.waspdb.WaspDb;
 import net.rehacktive.waspdb.WaspFactory;
 import net.rehacktive.waspdb.WaspHash;
-import net.rehacktive.waspdb.internals.collision.exceptions.KeyNotFoundException;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import POGOProtos.Data.PokemonDataOuterClass;
 import POGOProtos.Enums.PokemonIdOuterClass;
 import POGOProtos.Map.Pokemon.WildPokemonOuterClass;
 import POGOProtos.Networking.Envelopes.RequestEnvelopeOuterClass;
@@ -74,7 +54,6 @@ public class FetchService extends IntentService implements LocationListener {
     private String username;
     private String password;
     private SharedPreferences sharedPref;
-    private DB snappydb;
 
     public FetchService() {
         super("FetchService");
@@ -86,17 +65,17 @@ public class FetchService extends IntentService implements LocationListener {
         initializeDatabase();
         sharedPref = getSharedPreferences("credentials", Context.MODE_PRIVATE);
         mShouldFetch = true;
-        spanX = 4;
-        spanY = 3;
-        stepX = 1;
-        stepY = 1;
+        spanX = 5;
+        spanY = 5;
+        stepX = 2;
+        stepY = 2;
         initializeGps();
     }
 
     public void setLastKnownLocation() {
         SharedPreferences.Editor editor = sharedPref.edit();
-        editor.putFloat("last_lat", (float)mCurrentLocation.latitude);
-        editor.putFloat("last_lng", (float)mCurrentLocation.longitude);
+        editor.putFloat("last_lat", (float) mCurrentLocation.latitude);
+        editor.putFloat("last_lng", (float) mCurrentLocation.longitude);
         editor.apply();
     }
 
@@ -104,16 +83,11 @@ public class FetchService extends IntentService implements LocationListener {
     public void onDestroy() {
         myTimer.cancel();
         myTimer.purge();
-        try {
-            snappydb.close();
-        } catch (SnappydbException e) {
-            e.printStackTrace();
-        }
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if(intent.getStringExtra("type") != null) {
+        if (intent != null && intent.getStringExtra("type") != null) {
             switch (intent.getStringExtra("type")) {
                 case "status":
                     Toast.makeText(this, intent.getStringExtra("status"), Toast.LENGTH_SHORT).show();
@@ -123,6 +97,12 @@ public class FetchService extends IntentService implements LocationListener {
                     break;
                 case "bubble":
                     Toast.makeText(this, intent.getStringExtra("bubble"), Toast.LENGTH_SHORT).show();
+                    break;
+                case "spanX":
+                    spanX = intent.getIntExtra("spanX", spanX);
+                    break;
+                case "spanY":
+                    spanY = intent.getIntExtra("spanY", spanY);
                     break;
                 case "login":
                     String auth_s = intent.getStringExtra("auth");
@@ -143,7 +123,7 @@ public class FetchService extends IntentService implements LocationListener {
                     break;
             }
         }
-        return START_STICKY;
+        return START_NOT_STICKY;
     }
 
     public void initializeDatabase() {
@@ -156,12 +136,6 @@ public class FetchService extends IntentService implements LocationListener {
         pokemons = db.openOrCreateHash("pokemons");
         pokemons.flush();
         pokemons.flush();
-
-        try {
-            snappydb = DBFactory.open(this); //create or open an existing databse using the default name
-
-        } catch (SnappydbException e) {
-        }
     }
 
     @Override
@@ -173,7 +147,7 @@ public class FetchService extends IntentService implements LocationListener {
         myTask = new MyTimerTask(mCurrentLocation);
         myTimer = new Timer();
 
-        myTimer.schedule(myTask, 0, 45 * 1000);
+        myTimer.schedule(myTask, 0, 30 * 1000);
     }
 
     @Override
@@ -282,12 +256,39 @@ public class FetchService extends IntentService implements LocationListener {
             protected List<WildPokemonOuterClass.WildPokemon> doInBackground(LatLng... params) {
                 LatLng search_loc;
 
-                for (int y = -spanY; y <= spanY; y += stepY) {
-                    for (int x = -spanX; x <= spanX; x += stepX) {
-                        double lat = loc.latitude + y * 0.001;
+                /*
+                int t = Math.max(spanX, spanY);
+                int maxI = t * t;
+                int x = 0, y = 0, dx = 0*stepX, dy = -1*stepY;
+                for (int i = 0; i < maxI; i++) {
+                    if ((-spanX / 2 <= x) && (x <= spanX / 2) && (-spanY / 2 <= y) && (y <= spanY / 2)) {
+                        //t = Math.max(spanX*2, spanY*2);
+                        //maxI = t * t;
+
+                        double lat = loc.latitude + y * 0.00075;
                         double new_x = (x * 0.001) / Math.cos(loc.longitude);
                         double lng = loc.longitude + new_x;
                         search_loc = new LatLng(lat, lng);
+
+                        Intent itm = new Intent(FetchService.this, PokeService.class);
+                        itm.putExtra("type", "marker");
+                        itm.putExtra("lat", lat);
+                        itm.putExtra("lng", lng);
+                        startService(itm);
+                        */
+
+
+                for (int y = -spanY; y <= spanY; y += stepY) {
+                    for (int x = -spanX; x <= spanX; x += stepX) {
+                        double lat = loc.latitude + y * 75/111000f;
+                        double new_x = (x * 75/111000f) / Math.cos(loc.longitude);
+                        double lng = loc.longitude + new_x;
+                        search_loc = new LatLng(lat, lng);
+                        Intent itm = new Intent(FetchService.this, PokeService.class);
+                        itm.putExtra("type", "marker");
+                        itm.putExtra("lat", lat);
+                        itm.putExtra("lng", lng);
+                        startService(itm);
                         try {
                             Thread.sleep(1000);
                         } catch (InterruptedException es) {
@@ -316,15 +317,15 @@ public class FetchService extends IntentService implements LocationListener {
 
                                         Intent it = new Intent(FetchService.this, PokeService.class);
                                         Bundle pokedata = new Bundle();
-                                        pokedata.putString("encounterid",  String.valueOf(p_simple.encounterId));
-                                        pokedata.putLong("timestampHidden",  p_simple.timestampHidden);
-                                        pokedata.putDouble("latitude",  p_simple.latitude);
-                                        pokedata.putDouble ("longitude",  p_simple.longitude);
-                                        pokedata.putInt("pokemonid",  p_simple.pokemonid);
-                                        pokedata.putString("name",  p_simple.name);
+                                        pokedata.putString("encounterid", String.valueOf(p_simple.encounterId));
+                                        pokedata.putLong("timestampHidden", p_simple.timestampHidden);
+                                        pokedata.putDouble("latitude", p_simple.latitude);
+                                        pokedata.putDouble("longitude", p_simple.longitude);
+                                        pokedata.putInt("pokemonid", p_simple.pokemonid);
+                                        pokedata.putString("name", p_simple.name);
 
-                                        it.putExtras ( pokedata );
-                                        it.putExtra ( "type", "new_pokemon" );
+                                        it.putExtras(pokedata);
+                                        it.putExtra("type", "new_pokemon");
                                         startService(it);
                                     }
                                 }
@@ -341,8 +342,17 @@ public class FetchService extends IntentService implements LocationListener {
 
 
                         }
-
+                        /*
+                        if ((x == y) || ((x < 0) && (x == -y)) || ((x > 0) && (x == 1 - y))) {
+                            t = dx;
+                            dx = -dy;
+                            dy = t;
+                        }
+                        x += dx;
+                        y += dy;
+                        */
                     }
+
                 }
                 return null;
             }

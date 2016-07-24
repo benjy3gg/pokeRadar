@@ -1,18 +1,14 @@
 package com.benjy3gg.pokeradar;
 
 import android.animation.Animator;
+import android.animation.ValueAnimator;
 import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
-import android.graphics.Point;
-import android.location.Address;
-import android.location.Geocoder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -22,37 +18,28 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.Circle;
+import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polygon;
 import com.google.android.gms.maps.model.PolygonOptions;
 
-import net.rehacktive.waspdb.WaspDb;
-import net.rehacktive.waspdb.WaspFactory;
 import net.rehacktive.waspdb.WaspHash;
 
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.Timer;
-
-import POGOProtos.Enums.PokemonIdOuterClass;
 
 public class PokeService extends IntentService implements OnMapReadyCallback {
     private WindowManager windowManager;
@@ -79,6 +66,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
     private int stepX;
     private SeekBar mSeekBarHorizontal;
     private VerticalSeekBar mSeekBarVertical;
+    private ValueAnimator vAnimator;
 
     @SuppressWarnings("deprecation")
 
@@ -95,13 +83,16 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
         mapView.onCreate(null);
         mapView.getMapAsync(this);
 
-        spanX = 4;
-        spanY = 3;
+        spanX = 5;
+        spanY = 5;
         stepX = 1;
         stepY = 1;
 
         mSeekBarHorizontal = (SeekBar) v.findViewById(R.id.seekBarHorizontal);
         mSeekBarVertical = (VerticalSeekBar) v.findViewById(R.id.seekBarVertical);
+
+        mSeekBarHorizontal.setProgress(spanX);
+        mSeekBarVertical.setProgress(spanY);
 
         mSeekBarHorizontal.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -138,11 +129,19 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
     public void setSearchSpanX(int spanX) {
         this.spanX = spanX;
         updateBoundingRect();
+        Intent it = new Intent(this, FetchService.class);
+        it.putExtra("type", "spanX");
+        it.putExtra("spanX", spanX);
+        startService(it);
     }
 
     public void setSearchSpanY(int spanY) {
         this.spanY = spanY;
         updateBoundingRect();
+        Intent it = new Intent(this, FetchService.class);
+        it.putExtra("type", "spanY");
+        it.putExtra("spanY", spanY);
+        startService(it);
     }
 
     public void getSetLastKnownLocation() {
@@ -237,8 +236,10 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
                 int pokemonid = getBundle.getInt("pokemonid", -1);
                 String name = getBundle.getString("name",  "");
                 PokemonSimple p_simple = new PokemonSimple(till, encounterid, latitude,longitude, pokemonid, name);
-                pokemons.put(encounterid, p_simple);
-                addPokemonMarker(encounterid);
+                if(p_simple.timestampHidden > System.currentTimeMillis()) {
+                    pokemons.put(encounterid, p_simple);
+                    addPokemonMarker(encounterid);
+                }
                 break;
             case "bubble":
                 Toast.makeText(this, intent.getStringExtra("bubble"), Toast.LENGTH_SHORT).show();
@@ -248,9 +249,37 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
                 LatLng new_loc = new LatLng(intent.getDoubleExtra("lat", mCurrentLocation.latitude), intent.getDoubleExtra("lng", mCurrentLocation.longitude));
                 setNewLocation(new_loc);
                 break;
+            case "marker":
+                LatLng marker_loc = new LatLng(intent.getDoubleExtra("lat", mCurrentLocation.latitude), intent.getDoubleExtra("lng", mCurrentLocation.longitude));
+                addSearchCircle(marker_loc);
+                break;
         }
         return START_NOT_STICKY;
     }
+
+    private void addSearchCircle(LatLng marker_loc) {
+        if(mMap != null) {
+            if(mCircle != null) {
+                mCircle.remove();
+            }
+            //vAnimator = new ValueAnimator();
+            mCircle = mMap.addCircle(new CircleOptions().center(marker_loc).radius(100).strokeColor(Color.argb(32, 29, 132, 181)));
+            /*vAnimator.setIntValues(0, 100);
+            vAnimator.setDuration(1000);
+            vAnimator.setEvaluator(new IntEvaluator());
+            vAnimator.setInterpolator(new OvershootInterpolator());
+            vAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                    float animatedFraction = valueAnimator.getAnimatedFraction();
+                    // Log.e("", "" + animatedFraction);
+                    mCircle.setRadius(animatedFraction * 100);
+                }
+            });
+            vAnimator.start();*/
+        }
+    }
+
 
     private void addPokemonMarker(String encounterid) {
         PokemonSimple poke = pokemons.get(encounterid);
@@ -268,30 +297,30 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
 
         //calculate boundingBox
         //topLeft
-        double lat = location.latitude + (-1 * spanY * 0.001);
-        double new_x = (-1 * spanX * 0.001) / Math.cos(location.longitude);
+        double lat = location.latitude + (-1 * spanY * 75/111000f);
+        double new_x = (-1 * spanX * 75/111000f) / Math.cos(location.longitude);
         double lng = location.longitude + new_x;
         LatLng topLeft = new LatLng(lat, lng);
 
         //topRight
-        lat = location.latitude + (-1 * spanY * 0.001);
-        new_x = (spanX * 0.001) / Math.cos(location.longitude);
+        lat = location.latitude + (-1 * spanY * 75/111000f);
+        new_x = (spanX * 75/111000f) / Math.cos(location.longitude);
         lng = location.longitude + new_x;
         LatLng topRight = new LatLng(lat, lng);
 
         //bottomLeft
-        lat = location.latitude + spanY * 0.001;
-        new_x = (-1 * spanX * 0.001) / Math.cos(location.longitude);
+        lat = location.latitude + spanY * 75/111000f;
+        new_x = (-1 * spanX * 75/111000f) / Math.cos(location.longitude);
         lng = location.longitude + new_x;
         LatLng bottomLeft = new LatLng(lat, lng);
 
         //bottomRight
-        lat = location.latitude + spanY * 0.001;
-        new_x = (spanX * 0.001) / Math.cos(location.longitude);
+        lat = location.latitude + spanY * 75/111000f;
+        new_x = (spanX * 75/111000f) / Math.cos(location.longitude);
         lng = location.longitude + new_x;
         LatLng bottomRight = new LatLng(lat, lng);
 
-        return new PolygonOptions().add(topLeft).add(topRight).add(bottomRight).add(bottomLeft).add(topLeft).fillColor(Color.argb(8, 29, 132, 181)).strokeColor(Color.argb(32, 29, 132, 181));
+        return new PolygonOptions().add(topLeft).add(topRight).add(bottomRight).add(bottomLeft).add(topLeft).fillColor(Color.argb(8, 29, 132, 181)).strokeColor(Color.argb(16, 29, 132, 181));
     }
 
     private void setNewLocation(LatLng new_loc) {
@@ -313,7 +342,6 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
             if(mPolygon != null) {
                 mPolygon.remove();
             }
-
             mPolygon = mMap.addPolygon(polygonOptions);
         }
     }
@@ -411,7 +439,13 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
                 mLocationMarker.remove();
             }
             mLocationMarker = mMap.addMarker(new MarkerOptions().position(mCurrentLocation));
+            if(mPolygon != null) {
+                mPolygon.remove();
+            }
+            PolygonOptions polygonOptions = calculateBoundingBox(mCurrentLocation);
+            mPolygon = mMap.addPolygon(polygonOptions);
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(mCurrentLocation, 15));
+
         }
 
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
