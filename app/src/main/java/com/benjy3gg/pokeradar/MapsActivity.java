@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -68,7 +69,6 @@ public class MapsActivity extends AppCompatActivity {
         allowOverlay();
         requestGpsPermission();
         setupLayout();
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
     }
 
     public void hideLoginButtons() {

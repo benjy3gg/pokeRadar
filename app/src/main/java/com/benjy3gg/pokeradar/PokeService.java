@@ -224,6 +224,10 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
         switch (intent.getStringExtra("type")) {
             case "status":
                 Toast.makeText(this, intent.getStringExtra("status"), Toast.LENGTH_SHORT).show();
+                if(intent.getStringExtra("status").equals("initialized")) {
+                    Intent it = new Intent(this, ChatHeadService.class);
+                    startService(it);
+                }
                 break;
             case "new_pokemon":
                 Bundle getBundle = null;
@@ -468,14 +472,9 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
         setupView();
         setupTimers();
 
-        Intent it = new Intent(this, ChatHeadService.class);
-        startService(it);
-
         Intent it2 = new Intent(this, FetchService.class);
         it2.putExtra("type", "mapReady");
         startService(it2);
-
-
 
     }
 

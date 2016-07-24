@@ -9,12 +9,14 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.Settings;
 import android.util.Base64;
 import android.util.Log;
 import android.widget.Toast;
 
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.pokegoapi.api.PokemonGo;
@@ -26,7 +28,9 @@ import net.rehacktive.waspdb.WaspFactory;
 import net.rehacktive.waspdb.WaspHash;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -54,6 +58,11 @@ public class FetchService extends IntentService implements LocationListener {
     private String username;
     private String password;
     private SharedPreferences sharedPref;
+    private boolean mMapReady = false;
+    private boolean mFirstStart = true;
+    private Handler updateHandler;
+    private int updateDelay;
+    private Runnable myRunnable;
 
     public FetchService() {
         super("FetchService");
@@ -119,11 +128,35 @@ public class FetchService extends IntentService implements LocationListener {
                     initializeGo();
                     break;
                 case "mapReady":
-                    startTimer();
+                    Log.d(TAG, "Map is ready");
+                    mMapReady = true;
+                    tryStart();
                     break;
             }
         }
         return START_NOT_STICKY;
+    }
+
+    public void tryStart() {
+        updateHandler = new Handler();
+        updateDelay = 1000; //milliseconds
+
+        myRunnable = new Runnable() {
+            public void run() {
+                Log.d(TAG, "Try starting fetch loop");
+                if(mMapReady && mFirstStart && mCurrentLocation != null) {
+                    Log.d(TAG, "Fetch loop done");
+                    mFirstStart = false;
+                    updateHandler.removeCallbacks(myRunnable);
+                    startTimer();
+                }else {
+                    updateHandler.postDelayed(this, updateDelay);
+                }
+
+            }
+        };
+
+        updateHandler.postDelayed(myRunnable, updateDelay);
     }
 
     public void initializeDatabase() {
@@ -152,6 +185,7 @@ public class FetchService extends IntentService implements LocationListener {
 
     @Override
     public void onLocationChanged(Location location) {
+        Log.d(TAG, "Location set");
         mCurrentLocation = new LatLng(location.getLatitude(), location.getLongitude());
         setLastKnownLocation();
         //send Location to PokeService
@@ -186,6 +220,7 @@ public class FetchService extends IntentService implements LocationListener {
 
         if (!enabled) {
             Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
         }
 
