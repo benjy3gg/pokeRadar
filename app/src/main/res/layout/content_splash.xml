@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/content_splash"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.benjy3gg.pokeradar.SplashActivity"
+    tools:showIn="@layout/activity_splash">
+
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:srcCompat="@drawable/big_icon"
+            android:id="@+id/splashIcon"
+            app:layout_constraintLeft_toLeftOf="@+id/content_splash" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="This is pokeRadar"
+            android:id="@+id/splashInfo"
+            android:textAlignment="center" />
+
+        <ProgressBar
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:indeterminate="true"
+            android:visibility="visible"
+            android:id="@+id/splashProgress" />
+    </LinearLayout>
+
+</android.support.constraint.ConstraintLayout>
