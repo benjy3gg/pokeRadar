@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    tools:context="com.benjy3gg.pokeradar.SplashActivity"
+    tools:context="com.benjy3gg.livemapgo.SplashActivity"
     android:id="@+id/splashParent">
 
     <android.support.design.widget.AppBarLayout

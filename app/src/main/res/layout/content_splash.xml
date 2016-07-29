@@ -6,7 +6,7 @@
     android:id="@+id/content_splash"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.benjy3gg.pokeradar.SplashActivity"
+    tools:context="com.benjy3gg.livemapgo.SplashActivity"
     tools:showIn="@layout/activity_splash"
     android:layout_marginTop="56dp">
 
