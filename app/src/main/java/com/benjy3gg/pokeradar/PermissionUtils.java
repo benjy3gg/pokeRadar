@@ -20,9 +20,18 @@ public class PermissionUtils {
         }
     }
 
-    public static boolean getLocationPermissions(AppPermissions pAppPermissions) {
+    public static boolean hasLocationPermissions(AppPermissions pAppPermissions) {
         String[] permissions = new String[]{android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCESS_FINE_LOCATION};
         if(!pAppPermissions.hasPermission(permissions)) {
+            return false;
+        }else {
+            return true;
+        }
+    }
+
+    public static boolean getLocationPermissions(AppPermissions pAppPermissions) {
+        String[] permissions = new String[]{android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCESS_FINE_LOCATION};
+        if(!hasLocationPermissions(pAppPermissions)) {
             pAppPermissions.requestPermission(permissions, SplashActivity.REQ_CODE_LOCATION);
         }else {
             return true;

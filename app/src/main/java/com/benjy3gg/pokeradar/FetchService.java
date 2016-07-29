@@ -14,6 +14,9 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationManager;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
@@ -144,16 +147,16 @@ public class FetchService extends IntentService {
         EventBus.getDefault().register(this);
 
         initializeGps();
-    }
-
-    @Subscribe
-    public void handleSomethingElse(GoFoundEvent event) {
-        go = event.go;
         tryStart();
     }
 
+    @Subscribe(sticky = true)
+    public void handleGoFound(GoFoundEvent event) {
+        go = event.go;
+    }
+
     @Subscribe
-    public void handleSomethingElse(MapReadyEvent event) {
+    public void handleMapReady(MapReadyEvent event) {
         mMapReady = true;
     }
 
@@ -241,6 +244,10 @@ public class FetchService extends IntentService {
 
         myRunnable = new Runnable() {
             public void run() {
+                GoFoundEvent event = EventBus.getDefault().getStickyEvent(GoFoundEvent.class);
+                if(event != null) {
+                    go = event.go;
+                }
                 Log.d(TAG, "Try starting fetch loop");
                 if(mCurrentLocation != null) {
                     Intent it = new Intent(FetchService.this, PokeService.class);
@@ -497,7 +504,7 @@ public class FetchService extends IntentService {
                                 }
                                 if(sharedPref.getBoolean("notify_"+p_simple.pokemonid, false)) {
                                     if(p_simple.timestampHidden > System.currentTimeMillis()) {
-                                        pokemonsInNotification.add(p_simple);
+                                        //pokemonsInNotification.add(p_simple);
                                         postNotification(p_simple);
                                     }
                                 }
@@ -505,7 +512,7 @@ public class FetchService extends IntentService {
 
                         }
                     } catch (Exception ex) {
-
+                        ex.printStackTrace();
                         Log.d(TAG, "Error:" + ex);
                         if(!mSendConnectionGoodAgain) {
                             Intent it = new Intent(FetchService.this, PokeService.class);
@@ -560,52 +567,64 @@ public class FetchService extends IntentService {
     public void postNotification(PokemonSimple pp) {
 
         NotificationCompat.InboxStyle inboxStyle = new NotificationCompat.InboxStyle();
-        for(PokemonSimple p : pokemonsInNotification) {
+        //for(PokemonSimple p : pokemonsInNotification) {
 
             Location locationA = new Location("Player");
             locationA.setLatitude(mCurrentLocation.latitude);
             locationA.setLongitude(mCurrentLocation.longitude);
             Location locationB = new Location("Pokemon");
 
-            locationB.setLatitude(p.latitude);
-            locationB.setLongitude(p.longitude);
+            locationB.setLatitude(pp.latitude);
+            locationB.setLongitude(pp.longitude);
 
             float distance = locationA.distanceTo(locationB);
             float bearing = locationA.bearingTo(locationB);
-            String direction = getDirectionName(bearing);
+            String direction = getDirectionName(Math.abs(bearing));
 
             CharSequence relTime = DateUtils.getRelativeTimeSpanString(
-            p.timestampHidden,
+            pp.timestampHidden,
             System.currentTimeMillis(),
                     DateUtils.FORMAT_ABBREV_RELATIVE);
-            inboxStyle.addLine(p.name + " flees " + relTime + ", " + Math.round(distance) + " meters in " + direction);
-        }
+            inboxStyle.addLine(pp.name + " flees " + relTime + ", " + Math.round(distance) + " meters in " + direction);
+        //}
 
 
 
-        Intent deleteIntent = new Intent(NOTIFICATION_DELETED_ACTION);
+        /*Intent deleteIntent = new Intent(NOTIFICATION_DELETED_ACTION);
         PendingIntent pendintIntent = PendingIntent.getBroadcast(this, 0, deleteIntent, 0);
-        registerReceiver(receiver, new IntentFilter(NOTIFICATION_DELETED_ACTION));
-        long[] pattern = {600, 300, 400};
+        registerReceiver(receiver, new IntentFilter(NOTIFICATION_DELETED_ACTION));*/
+        long[] pattern = {600};
         if(!sharedPref.getBoolean("vibrate" ,false)) {
             pattern[0] = 0L;
             pattern[1] = 0L;
             pattern[2] = 0L;
         }
+        Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        if(!sharedPref.getBoolean("sound" ,false)) {
+            notification = null;
+        }
+
+
+        Intent notificationIntent = new Intent(this, SplashActivity.class);
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
+                | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent intent = PendingIntent.getActivity(this, 0,
+                notificationIntent, 0);
 
         Notification n  = new NotificationCompat.Builder(this)
-                .setContentTitle("New Pokemon")
-                .setContentText(pp.name)
-                .setSmallIcon(getResourceId("icon", "mipmap"))
+                .setContentTitle(pp.name)
+                .setContentText(" flees " + relTime + ", " + Math.round(distance) + " meters in " + direction)
+                .setSmallIcon(getResourceId("prefix_" + pp.pokemonid, "drawable"))
                 .setAutoCancel(true)
-                .setStyle(inboxStyle)
-                .setDeleteIntent(pendintIntent)
-                .setContentIntent(pendintIntent)
-                .setFullScreenIntent(pendintIntent, false)
+                //.setStyle(inboxStyle)
+                //.setDeleteIntent(pendintIntent)
+                .setContentIntent(intent)
+                //.setFullScreenIntent(pendintIntent, false)
                 .setVibrate(pattern)
+                .setSound(notification)
                 .build();
 
-        mNotificationManager.notify(NOTIFICATION_ID, n);
+        mNotificationManager.notify((int)System.currentTimeMillis(), n);
     }
 
     public int getResourceId(String pVariableName, String pType) {

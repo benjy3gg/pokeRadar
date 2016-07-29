@@ -8,7 +8,7 @@
         android:layout_width="match_parent"
         android:layout_height="64dp"
         android:scaleType="fitCenter"
-        android:background="#FFFFBB33"
+        android:background="@color/colorPrimary"
         android:contentDescription="@string/app_name" />
     <EditText
         android:id="@+id/username"
@@ -19,7 +19,8 @@
         android:layout_marginLeft="4dp"
         android:layout_marginRight="4dp"
         android:layout_marginBottom="4dp"
-        android:hint="@string/username" />
+        android:hint="@string/username"
+        android:textAlignment="center" />
     <EditText
         android:id="@+id/password"
         android:inputType="textPassword"
@@ -30,5 +31,16 @@
         android:layout_marginRight="4dp"
         android:layout_marginBottom="16dp"
         android:fontFamily="sans-serif"
-        android:hint="@string/password"/>
+        android:hint="@string/password"
+        android:textAlignment="center" />
+
+    <TextView
+        android:text="TextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/googleTokenFound"
+        android:fontFamily="sans-serif"
+        android:textStyle="normal|bold"
+        android:visibility="gone"
+        android:textAlignment="center" />
 </LinearLayout>

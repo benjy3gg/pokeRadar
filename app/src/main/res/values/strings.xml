@@ -45,4 +45,8 @@
     <string name="need_login">Need Login</string>
 
     <string name="google_token_edit_text">Google Token</string>
+    <string name="google_token_found">Google Token found, press Google to login!</string>
+
+    <string name="banner_ad_unit_id">ca-app-pub-7144884667135062/1453212631</string>
+
 </resources>

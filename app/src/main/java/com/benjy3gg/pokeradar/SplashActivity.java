@@ -1,5 +1,7 @@
 package com.benjy3gg.pokeradar;
 
+import android.*;
+import android.Manifest;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -17,6 +19,8 @@ import android.support.design.widget.Snackbar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -26,6 +30,12 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.anjlab.android.iab.v3.BillingProcessor;
+import com.anjlab.android.iab.v3.TransactionDetails;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdView;
+import com.google.android.gms.ads.MobileAds;
+import com.google.firebase.analytics.FirebaseAnalytics;
 import com.mukesh.permissions.AppPermissions;
 import com.pokegoapi.api.PokemonGo;
 import com.pokegoapi.auth.GoogleUserCredentialProvider;
@@ -37,14 +47,17 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import java.util.prefs.AbstractPreferences;
+
 import fr.quentinklein.slt.LocationTracker;
 import fr.quentinklein.slt.LocationUtils;
 import fr.quentinklein.slt.TrackerSettings;
 import okhttp3.OkHttpClient;
 
-public class SplashActivity extends AppCompatActivity implements LocationListener, AuthenticationListener {
+public class SplashActivity extends AppCompatActivity implements LocationListener, AuthenticationListener, BillingProcessor.IBillingHandler {
 
     //Permissions
+    private static final String SKU_PREMIUM = "com.benjy3gg.pokeradar.removeads";
     public static final int REQ_CODE_OVERLAY = 1234;
     public static final int REQ_CODE_LOCATION = 1235;
     public boolean bHasOverlayPermission = false;
@@ -66,6 +79,133 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
     private Snackbar mOverlaySnackbar;
     private Snackbar mLocationSnackbar;
     private Snackbar mEnableLoationSnackbar;
+    private TextView vSplashTokenFound;
+    private BillingProcessor bp;
+    private Menu mMenu;
+    private SharedPreferences.Editor mEditor;
+    private AdView mAdView;
+    private FirebaseAnalytics mFirebaseAnalytics;
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem checkable = menu.findItem(R.id.checkable_menu);
+        checkable.setChecked(mSharedPrefs.getBoolean("vibrate", false));
+        MenuItem sound = menu.findItem(R.id.checkable_menu_sound);
+        sound.setChecked(mSharedPrefs.getBoolean("sound", false));
+        return true;
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        mMenu = menu;
+        getMenuInflater().inflate(R.menu.menu, menu);
+        if (mSharedPrefs.getBoolean("premium", false)) {
+            mMenu.getItem(2).setVisible(false);
+        }
+        super.onCreateOptionsMenu(menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+
+        //noinspection SimplifiableIfStatement
+
+        if (id == R.id.menu_filters) {
+            Intent intent = new Intent(this, ListActivity.class);
+            this.startActivity(intent);
+            return true;
+        } else if (id == R.id.checkable_menu) {
+            SharedPreferences.Editor editor = mSharedPrefs.edit();
+            editor.putBoolean("vibrate", !item.isChecked());
+            editor.commit();
+            item.setChecked(mSharedPrefs.getBoolean("vibrate", false));
+            return true;
+        } else if (id == R.id.checkable_menu_sound) {
+            SharedPreferences.Editor editor = mSharedPrefs.edit();
+            editor.putBoolean("sound", !item.isChecked());
+            editor.commit();
+            item.setChecked(mSharedPrefs.getBoolean("sound", false));
+            return true;
+        }else if (id == R.id.menu_premium) {
+            if (mSharedPrefs.getBoolean("premium", false)) {
+                Toast.makeText(this, "You already have premium", Toast.LENGTH_SHORT).show();
+            } else {
+                if (bp != null) {
+                    bp.purchase(this, SKU_PREMIUM);
+                }
+            }
+            return true;
+
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onBillingInitialized() {
+        /*
+         * Called when BillingProcessor was initialized and it's ready to purchase
+         */
+        bp.loadOwnedPurchasesFromGoogle();
+        if (bp.isPurchased(SKU_PREMIUM)) {
+            mEditor = mSharedPrefs.edit();
+            mEditor.putBoolean("premium", true);
+            mEditor.apply();
+            hideAds();
+        }
+    }
+
+    @Override
+    public void onProductPurchased(String productId, TransactionDetails details) {
+        /*
+         * Called when requested PRODUCT ID was successfully purchased
+         */
+
+        if (bp.isPurchased(SKU_PREMIUM)) {
+            mEditor = mSharedPrefs.edit();
+            mEditor.putBoolean("premium", true);
+            mEditor.apply();
+            hideAds();
+            mFirebaseAnalytics.logEvent("BOUGHT PREMIUM", new Bundle());
+        }
+    }
+
+    @Override
+    public void onBillingError(int errorCode, Throwable error) {
+        /*
+         * Called when some error occurred. See Constants class for more details
+         *
+         * Note - this includes handling the case where the user canceled the buy dialog:
+         * errorCode = Constants.BILLING_RESPONSE_RESULT_USER_CANCELED
+         */
+
+    }
+
+    @Override
+    public void onPurchaseHistoryRestored() {
+        /*
+         * Called when purchase history was restored and the list of all owned PRODUCT ID's
+         * was loaded from Google Play
+         */
+        if (bp.isPurchased(SKU_PREMIUM)) {
+            mEditor = mSharedPrefs.edit();
+            mEditor.putBoolean("premium", true);
+            mEditor.apply();
+            hideAds();
+        }
+    }
+
+    public void removeShoppingIcon() {
+        if (mMenu != null) {
+            mMenu.getItem(1).setVisible(false);
+            //mMenu.removeItem(R.id.menu_premium);
+            invalidateOptionsMenu();
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,6 +215,16 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         setSupportActionBar(toolbar);
 
         //Important variables
+        mRuntimePermission = new AppPermissions(this);
+        mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
+        mFirebaseAnalytics.logEvent("START MAPSACTIVIY", new Bundle());
+
+
+        bHasOverlayPermission = PermissionUtils.canDrawOverlays(this);
+        bHasLocationPermission = PermissionUtils.hasLocationPermissions(mRuntimePermission);
+        bLocationEnabled = (LocationUtils.isGpsProviderEnabled(this) && LocationUtils.isNetworkProviderEnabled(this));
+
+
         mSharedPrefs = getSharedPreferences("credentials", Context.MODE_PRIVATE);
         EventBus.getDefault().register(this);
 
@@ -97,20 +247,48 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         mHandler.postDelayed(myRunnable, 1000);
 
         //Permissions
-        mRuntimePermission = new AppPermissions(this);
-        if (PermissionUtils.getLocationPermissions(mRuntimePermission)) {
-            bHasLocationPermission = true;
-            enableLocation();
+
+        MobileAds.initialize(getApplicationContext(), "ca-app-pub-7144884667135062~9262401038");
+        String base64EncodedPublicKey = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuXhM+jUrijfSaO07IZxXHkorDx5zP1qdvvPE/tFFsH7yrCC3O6OdksMWX8UxheD0QscqPlee+yojm4HWc6lNf6tVL6YKbL895rZ3p+l41svhUIAuoovar55D6oXGNxVrPrGToqGVIc7QpXfmdRjndc1wsxFAM08N+f+iIQKsikFkp6TykAEvzbOWbHINdudmn3yuXQAOSCFSvGoCzcY6mNjO109/OItjc524afRv2TWIgqggXBYpnvW/GXDfOlOBzuHivJwvvXTLGpw/8DU/YCBYQM21EQmDn4GP4DgnEycSc3R7pMvu82/QYvrZ5nN4WZBPKFIJhTO0A4SaLn9OuwIDAQAB";
+        // compute your public key and store it in base64EncodedPublicKey
+
+        //TODO: add in release
+
+        mAdView = (AdView) findViewById(R.id.adView);
+        if (mSharedPrefs.getBoolean("premium", false)) {
+            hideAds();
+        } else {
+            showAds();
         }
 
-        //TODO: Check permissions, if set go to LoginActivity
-        if (PermissionUtils.canDrawOverlays(this)) {
-            //Snackbar.make(vSplashContent, R.string.permission_overlay_granted, Snackbar.LENGTH_INDEFINITE).show();
-            bHasOverlayPermission = true;
-        } else {
-            requestOverlayPermission();
+        /*
+        AdView mAdView = (AdView) findViewById(R.id.adView);
+        AdRequest.Builder adRequest = new AdRequest.Builder().addTestDevice("651B1B259A67AF560F4EDDEE3D82AD2B");
+        AdRequest aaa=adRequest.build();
+        mAdView.loadAd(aaa);*/
+    }
+
+    public void hideAds() {
+        if(mAdView != null) {
+            mAdView.setVisibility(View.INVISIBLE);
+        }
+        //TODO: CHANGE POKEBALL TO GOLD
+        /*
+        if (premiumText != null) {
+            premiumText.setText("Thanks for purchasing premium and supporting the development!");
+        }*/
+        removeShoppingIcon();
+    }
+
+    public void showAds() {
+        if(mAdView != null) {
+            mAdView.setVisibility(View.VISIBLE);
+            AdRequest adRequest = new AdRequest.Builder().build();
+            mAdView.loadAd(adRequest);
         }
     }
+
+
 
     private void createSnackbars() {
         mOverlaySnackbar = Snackbar.make(vSplashContent, "App needs the overlay permission!", Snackbar.LENGTH_INDEFINITE).setAction(R.string.permission_grant, new View.OnClickListener() {
@@ -119,10 +297,21 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                 requestOverlayPermission();
             }
         });
+        mOverlaySnackbar.setCallback(new Snackbar.Callback() {
+            @Override public void onDismissed(Snackbar snackbar, int event) {
+                if (event == DISMISS_EVENT_SWIPE) mOverlaySnackbar.show();
+            }
+        });
+
         mLocationSnackbar = Snackbar.make(vSplashContent, "App needs the location permission!", Snackbar.LENGTH_INDEFINITE).setAction(R.string.permission_grant, new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 PermissionUtils.getLocationPermissions(mRuntimePermission);
+            }
+        });
+        mLocationSnackbar.setCallback(new Snackbar.Callback() {
+            @Override public void onDismissed(Snackbar snackbar, int event) {
+                if (event == DISMISS_EVENT_SWIPE) mLocationSnackbar.show();
             }
         });
         mEnableLoationSnackbar = Snackbar.make(vSplashContent, "You need to enable location!", Snackbar.LENGTH_INDEFINITE).setAction(R.string.enable_location, new View.OnClickListener() {
@@ -131,8 +320,11 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                 enableLocation();
             }
         });
-
-
+        mEnableLoationSnackbar.setCallback(new Snackbar.Callback() {
+            @Override public void onDismissed(Snackbar snackbar, int event) {
+                if (event == DISMISS_EVENT_SWIPE) mEnableLoationSnackbar.show();
+            }
+        });
     }
 
     public void requestOverlayPermission() {
@@ -147,7 +339,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         switch (requestCode) {
             case REQ_CODE_OVERLAY:
                 bHasOverlayPermission = true;
-                //Snackbar.make(vSplashContent, R.string.permission_overlay_granted, Snackbar.LENGTH_INDEFINITE).show();
+                Toast.makeText(this, R.string.permission_overlay_granted, Toast.LENGTH_SHORT).show();
                 break;
         }
     }
@@ -228,19 +420,24 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
 
     public void waitForPermissions() {
         vSplashProgress.setVisibility(View.VISIBLE);
+        vSplashInfo.setText("Waiting for Permissions");
         if (!bHasOverlayPermission) {
             mOverlaySnackbar.show();
         } else {
-            mOverlaySnackbar.dismiss();
             if (!bHasLocationPermission) {
+                mOverlaySnackbar.dismiss();
                 mLocationSnackbar.show();
             } else {
-                mLocationSnackbar.dismiss();
+                enableLocation();
                 if (!bLocationEnabled) {
+                    mLocationSnackbar.dismiss();
                     mEnableLoationSnackbar.show();
                 }else {
                     //ALL PERMISSIONS, YAY!!!
                     Toast.makeText(this, "All Permissions granted!", Toast.LENGTH_SHORT).show();
+                    createDialog();
+                    vSplashProgress.setVisibility(View.GONE);
+                    vSplashInfo.setText("Please login");
                 }
             }
         }
@@ -281,6 +478,11 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_login, null);
         final EditText editUsername = (EditText) dialogView.findViewById(R.id.username);
         final EditText editPassword = (EditText) dialogView.findViewById(R.id.password);
+        TextView textTokenFound = (TextView) dialogView.findViewById(R.id.googleTokenFound);
+        if(mSharedPrefs.getString("googleToken", null) != null) {
+            textTokenFound.setVisibility(View.VISIBLE);
+            textTokenFound.setText(R.string.google_token_found);
+        }
 
         builder.setView(dialogView)
                 .setPositiveButton(R.string.google, new DialogInterface.OnClickListener() {
@@ -303,10 +505,14 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                 .setOnCancelListener(new DialogInterface.OnCancelListener() {
                     @Override
                     public void onCancel(DialogInterface dialogInterface) {
-                        Snackbar.make(vSplashContent, "Don't want to login? ;)", Snackbar.LENGTH_INDEFINITE).setAction(R.string.snackbar_action_login, new View.OnClickListener() {
+                        Snackbar.make(vSplashContent, "Please login! ;)", Snackbar.LENGTH_INDEFINITE).setAction(R.string.snackbar_action_login, new View.OnClickListener() {
                             @Override
                             public void onClick(View view) {
                                 createDialog();
+                            }
+                        }).setCallback(new Snackbar.Callback() {
+                            @Override public void onDismissed(Snackbar snackbar, int event) {
+                                if (event == DISMISS_EVENT_SWIPE) snackbar.show();
                             }
                         }).show();
                     }
@@ -348,14 +554,25 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
     public void onGoAvailable(PokemonGo go) {
         mGo = go;
         GoFoundEvent event = new GoFoundEvent(go);
-        EventBus.getDefault().post(event);
         startPokeService();
         startFetchService();
+        EventBus.getDefault().postSticky(event);
+        vSplashInfo.setText("Login erfolgreich!");
     }
 
     @Override
     public void onGoFailed(String reason) {
         Toast.makeText(this, "Login failed: " + reason, Toast.LENGTH_SHORT).show();
+        Snackbar.make(vSplashContent, "Please login! ;)", Snackbar.LENGTH_INDEFINITE).setAction(R.string.snackbar_action_login, new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                createDialog();
+            }
+        }).setCallback(new Snackbar.Callback() {
+            @Override public void onDismissed(Snackbar snackbar, int event) {
+                if (event == DISMISS_EVENT_SWIPE) snackbar.show();
+            }
+        }).show();
     }
 
     @Override
@@ -408,7 +625,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                 .setOnCancelListener(new DialogInterface.OnCancelListener() {
                     @Override
                     public void onCancel(DialogInterface dialogInterface) {
-                        Snackbar.make(vSplashContent, "You)", Snackbar.LENGTH_INDEFINITE).setAction(R.string.snackbar_action_login, new View.OnClickListener() {
+                        Snackbar.make(vSplashContent, "You need to login!", Snackbar.LENGTH_INDEFINITE).setAction(R.string.snackbar_action_login, new View.OnClickListener() {
                             @Override
                             public void onClick(View view) {
                                 createDialog();
