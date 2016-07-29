@@ -35,9 +35,11 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
+import com.google.android.gms.maps.MapsInitializer;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.Circle;
@@ -120,9 +122,8 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
         mNumSteps = 3;
 
         EventBus.getDefault().register(this);
-
+        MapsInitializer.initialize(this);
         createMapView(new Bundle());
-
 
         /*
         mSeekBarVertical.setOnSeekBarChangeListener(new VerticalSeekBar.OnSeekBarChangeListener() {
@@ -147,13 +148,22 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
         event = event;
     }
 
+    @Subscribe
+    public void handleChangeBubbleEvent(ChangeBubbleEvent event) {
+        switch (event.whattodo) {
+            case "open":
+                toggleView("top");
+                break;
+        }
+    }
+
 
 
     public void createMapView(Bundle mBundle) {
         LayoutInflater li = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         v = (RelativeLayout) li.inflate(R.layout.activity_maps, null);
         mapView = (MapView) v.findViewById(R.id.map);
-        mapView.onCreate(mBundle);
+        mapView.onCreate(null);
         mapView.getMapAsync(this);
 
         mSeekBarHorizontal = (SeekBar) v.findViewById(R.id.seekBarHorizontal);
@@ -422,7 +432,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
                     }
             }
         }
-        return START_NOT_STICKY;
+        return START_STICKY;
     }
 
     private void addSearchCircle(LatLng marker_loc) {
@@ -657,7 +667,6 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
         windowManager.removeView(v);
         windowManager.removeView(chatheadView);
         updateHandler.removeCallbacks(myRunnable);
-        //stopSelf();
     }
 
     @Override
@@ -874,8 +883,8 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
     }
 
     private void handleBubbleTrash() {
-        stopService(new Intent(PokeService.this, FetchService.class));
-        sendBroadcast(new Intent(PokeService.ACTION_SHOW_RESTART));
+        //stopService(new Intent(PokeService.this, FetchService.class));
+        EventBus.getDefault().post(new MessageEvent("pokeball_trashed", ""));
         PokeService.this.onDestroy();
     }
 
@@ -921,8 +930,6 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
 
             }
         }
-
-
     }
 
     private void resetPosition(int x_cord_now) {

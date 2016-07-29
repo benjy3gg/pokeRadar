@@ -19,12 +19,15 @@ import android.support.design.widget.Snackbar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -47,7 +50,11 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.prefs.AbstractPreferences;
+import java.util.regex.Pattern;
 
 import fr.quentinklein.slt.LocationTracker;
 import fr.quentinklein.slt.LocationUtils;
@@ -85,6 +92,10 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
     private SharedPreferences.Editor mEditor;
     private AdView mAdView;
     private FirebaseAnalytics mFirebaseAnalytics;
+    private Runnable myRunnable;
+    private Snackbar mLoginSnackbar;
+    private ImageView vSplashIcon;
+    private Snackbar mStartPokeballSnackbar;
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
@@ -92,6 +103,8 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         checkable.setChecked(mSharedPrefs.getBoolean("vibrate", false));
         MenuItem sound = menu.findItem(R.id.checkable_menu_sound);
         sound.setChecked(mSharedPrefs.getBoolean("sound", false));
+        MenuItem premium = menu.findItem(R.id.menu_premium);
+        premium.setVisible(mSharedPrefs.getBoolean("premium", false));
         return true;
     }
 
@@ -99,9 +112,6 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
     public boolean onCreateOptionsMenu(Menu menu) {
         mMenu = menu;
         getMenuInflater().inflate(R.menu.menu, menu);
-        if (mSharedPrefs.getBoolean("premium", false)) {
-            mMenu.getItem(2).setVisible(false);
-        }
         super.onCreateOptionsMenu(menu);
         return true;
     }
@@ -132,7 +142,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
             item.setChecked(mSharedPrefs.getBoolean("sound", false));
             return true;
         }else if (id == R.id.menu_premium) {
-            if (mSharedPrefs.getBoolean("premium", false)) {
+            if (isPremium()) {
                 Toast.makeText(this, "You already have premium", Toast.LENGTH_SHORT).show();
             } else {
                 if (bp != null) {
@@ -201,7 +211,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
 
     public void removeShoppingIcon() {
         if (mMenu != null) {
-            mMenu.getItem(1).setVisible(false);
+            mMenu.getItem(3).setVisible(false);
             //mMenu.removeItem(R.id.menu_premium);
             invalidateOptionsMenu();
         }
@@ -219,7 +229,6 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
         mFirebaseAnalytics.logEvent("START MAPSACTIVIY", new Bundle());
 
-
         bHasOverlayPermission = PermissionUtils.canDrawOverlays(this);
         bHasLocationPermission = PermissionUtils.hasLocationPermissions(mRuntimePermission);
         bLocationEnabled = (LocationUtils.isGpsProviderEnabled(this) && LocationUtils.isNetworkProviderEnabled(this));
@@ -232,15 +241,16 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         vSplashContent = (CoordinatorLayout) findViewById(R.id.splashParent);
         vSplashInfo = (TextView) findViewById(R.id.splashInfo);
         vSplashProgress = (ProgressBar) findViewById(R.id.splashProgress);
-
         vSplashInfo.setText(Utils.getVersionCode(this));
+        vSplashIcon = (ImageView) findViewById(R.id.splashIcon);
 
         createSnackbars();
 
         mHandler = new Handler();
-        Runnable myRunnable = new Runnable() {
+        myRunnable = new Runnable() {
             @Override
             public void run() {
+                mHandler.postDelayed(myRunnable, 1000);
                 waitForPermissions();
             }
         };
@@ -252,20 +262,22 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         String base64EncodedPublicKey = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuXhM+jUrijfSaO07IZxXHkorDx5zP1qdvvPE/tFFsH7yrCC3O6OdksMWX8UxheD0QscqPlee+yojm4HWc6lNf6tVL6YKbL895rZ3p+l41svhUIAuoovar55D6oXGNxVrPrGToqGVIc7QpXfmdRjndc1wsxFAM08N+f+iIQKsikFkp6TykAEvzbOWbHINdudmn3yuXQAOSCFSvGoCzcY6mNjO109/OItjc524afRv2TWIgqggXBYpnvW/GXDfOlOBzuHivJwvvXTLGpw/8DU/YCBYQM21EQmDn4GP4DgnEycSc3R7pMvu82/QYvrZ5nN4WZBPKFIJhTO0A4SaLn9OuwIDAQAB";
         // compute your public key and store it in base64EncodedPublicKey
 
+        bp = new BillingProcessor(this, base64EncodedPublicKey, this);
+
         //TODO: add in release
 
         mAdView = (AdView) findViewById(R.id.adView);
-        if (mSharedPrefs.getBoolean("premium", false)) {
+        if (isPremium()) {
             hideAds();
         } else {
             showAds();
         }
 
-        /*
+
         AdView mAdView = (AdView) findViewById(R.id.adView);
         AdRequest.Builder adRequest = new AdRequest.Builder().addTestDevice("651B1B259A67AF560F4EDDEE3D82AD2B");
         AdRequest aaa=adRequest.build();
-        mAdView.loadAd(aaa);*/
+        mAdView.loadAd(aaa);
     }
 
     public void hideAds() {
@@ -273,10 +285,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
             mAdView.setVisibility(View.INVISIBLE);
         }
         //TODO: CHANGE POKEBALL TO GOLD
-        /*
-        if (premiumText != null) {
-            premiumText.setText("Thanks for purchasing premium and supporting the development!");
-        }*/
+        vSplashIcon.setImageResource(R.drawable.big_icon_supporter);
         removeShoppingIcon();
     }
 
@@ -288,10 +297,8 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         }
     }
 
-
-
     private void createSnackbars() {
-        mOverlaySnackbar = Snackbar.make(vSplashContent, "App needs the overlay permission!", Snackbar.LENGTH_INDEFINITE).setAction(R.string.permission_grant, new View.OnClickListener() {
+        mOverlaySnackbar = Snackbar.make(vSplashContent, R.string.app_needs_overlay, Snackbar.LENGTH_INDEFINITE).setAction(R.string.permission_grant, new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 requestOverlayPermission();
@@ -303,7 +310,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
             }
         });
 
-        mLocationSnackbar = Snackbar.make(vSplashContent, "App needs the location permission!", Snackbar.LENGTH_INDEFINITE).setAction(R.string.permission_grant, new View.OnClickListener() {
+        mLocationSnackbar = Snackbar.make(vSplashContent, R.string.app_needs_location, Snackbar.LENGTH_INDEFINITE).setAction(R.string.permission_grant, new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 PermissionUtils.getLocationPermissions(mRuntimePermission);
@@ -314,7 +321,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                 if (event == DISMISS_EVENT_SWIPE) mLocationSnackbar.show();
             }
         });
-        mEnableLoationSnackbar = Snackbar.make(vSplashContent, "You need to enable location!", Snackbar.LENGTH_INDEFINITE).setAction(R.string.enable_location, new View.OnClickListener() {
+        mEnableLoationSnackbar = Snackbar.make(vSplashContent, R.string.app_needs_gps, Snackbar.LENGTH_INDEFINITE).setAction(R.string.enable_location, new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 enableLocation();
@@ -325,7 +332,39 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                 if (event == DISMISS_EVENT_SWIPE) mEnableLoationSnackbar.show();
             }
         });
+        mLoginSnackbar = Snackbar.make(vSplashContent, R.string.app_needs_login, Snackbar.LENGTH_INDEFINITE).setAction(R.string.snackbar_action_login, new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                //TODO: createDialog() was here
+                createDialog();
+            }
+        }).setCallback(new Snackbar.Callback() {
+            @Override public void onDismissed(Snackbar snackbar, int event) {
+                if (event == DISMISS_EVENT_SWIPE) snackbar.show();
+            }
+        });
+        mStartPokeballSnackbar = Snackbar.make(vSplashContent, "You closed the pokeball!", Snackbar.LENGTH_INDEFINITE).setAction("Restart!", new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                restartPokeball();
+            }
+        }).setCallback(new Snackbar.Callback() {
+            @Override public void onDismissed(Snackbar snackbar, int event) {
+                if (event == DISMISS_EVENT_SWIPE) snackbar.show();
+            }
+        });
     }
+
+    public void restartPokeball() {
+        GoFoundEvent event = new GoFoundEvent(mGo);
+        ChangeBubbleEvent open_event = new ChangeBubbleEvent("open");
+        startPokeService();
+        startFetchService();
+        EventBus.getDefault().postSticky(event);
+        EventBus.getDefault().post(open_event);
+        vSplashInfo.setText("Restarted the pokeball!");
+    }
+
 
     public void requestOverlayPermission() {
         Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -358,6 +397,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
             }
             //Snackbar.make(vSplashContent, R.string.permission_location_granted, Snackbar.LENGTH_INDEFINITE).show();
             bHasLocationPermission = true;
+            mLocationSnackbar.dismiss();
             enableLocation();
         }
     }
@@ -368,6 +408,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
             LocationUtils.askEnableProviders(this, R.string.gps_enable_text, R.string.gps_enable_positive, R.string.gps_enable_negative);
         } else {
             bLocationEnabled = true;
+            mLocationSnackbar.dismiss();
         }
     }
 
@@ -377,6 +418,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
             return false;
         } else {
             bLocationEnabled = true;
+            mLocationSnackbar.dismiss();
             return true;
         }
     }
@@ -419,25 +461,30 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
     }
 
     public void waitForPermissions() {
+        Log.d("PERMISSIONS", "O: " + bHasOverlayPermission + " LP: " + bHasLocationPermission + " L: " + bLocationEnabled);
         vSplashProgress.setVisibility(View.VISIBLE);
-        vSplashInfo.setText("Waiting for Permissions");
+        vSplashInfo.setText("/----------Waiting for Permissions--------/");
         if (!bHasOverlayPermission) {
+            vSplashInfo.setText("/----------Waiting for Overlay--------/");
             mOverlaySnackbar.show();
         } else {
             if (!bHasLocationPermission) {
+                vSplashInfo.setText("/----------Waiting for LocationPermission--------/");
                 mOverlaySnackbar.dismiss();
                 mLocationSnackbar.show();
             } else {
                 enableLocation();
                 if (!bLocationEnabled) {
+                    vSplashInfo.setText("/----------Waiting for Location--------/");
                     mLocationSnackbar.dismiss();
                     mEnableLoationSnackbar.show();
                 }else {
-                    //ALL PERMISSIONS, YAY!!!
                     Toast.makeText(this, "All Permissions granted!", Toast.LENGTH_SHORT).show();
+                    //TODO: createDialog() was here
                     createDialog();
                     vSplashProgress.setVisibility(View.GONE);
-                    vSplashInfo.setText("Please login");
+                    vSplashInfo.setText("/----------Waiting for Login--------/");
+                    mHandler.removeCallbacks(myRunnable);
                 }
             }
         }
@@ -470,6 +517,33 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         }
     }
 
+    public void createCredChooserDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_chooser, null);
+
+        final Button btnChooseGoogle = (Button) dialogView.findViewById(R.id.btnChooseGoogle);
+        final Button btnChoosePTC = (Button) dialogView.findViewById(R.id.btnChoosePTC);
+
+        builder.setView(dialogView)
+                .setNegativeButton(R.string.ptc, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+
+                    }
+                })
+                .setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    @Override
+                    public void onCancel(DialogInterface dialogInterface) {
+                        //TODO: createDialog() was here
+                       createDialog();
+                    }
+                });
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+    }
+
     public void createDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         //TODO: Add logout button
@@ -478,6 +552,14 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_login, null);
         final EditText editUsername = (EditText) dialogView.findViewById(R.id.username);
         final EditText editPassword = (EditText) dialogView.findViewById(R.id.password);
+
+
+        String savedUsername = mSharedPrefs.getString("username", "");
+        String savedPassword = mSharedPrefs.getString("password", "");
+
+        editUsername.setText(savedUsername);
+        editPassword.setText(savedPassword);
+
         TextView textTokenFound = (TextView) dialogView.findViewById(R.id.googleTokenFound);
         if(mSharedPrefs.getString("googleToken", null) != null) {
             textTokenFound.setVisibility(View.VISIBLE);
@@ -488,8 +570,8 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                 .setPositiveButton(R.string.google, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
-                        mUsername = editUsername.getText().toString();
-                        mPassword = editPassword.getText().toString();
+                        //mUsername = editUsername.getText().toString();
+                        //mPassword = editPassword.getText().toString();
                         Toast.makeText(SplashActivity.this, "Google login", Toast.LENGTH_LONG).show();
                         initializeGo(mUsername, mPassword, "google");
 
@@ -499,22 +581,19 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
                         Toast.makeText(SplashActivity.this, "PTC login", Toast.LENGTH_LONG).show();
-                        initializeGo(mUsername, mPassword, "ptc");
+                        mUsername = editUsername.getText().toString();
+                        mPassword = editPassword.getText().toString();
+                        if(mUsername != "" && mPassword != "") {
+                            initializeGo(mUsername, mPassword, "ptc");
+                        }else {
+                            mLoginSnackbar.show();
+                        }
                     }
                 })
                 .setOnCancelListener(new DialogInterface.OnCancelListener() {
                     @Override
                     public void onCancel(DialogInterface dialogInterface) {
-                        Snackbar.make(vSplashContent, "Please login! ;)", Snackbar.LENGTH_INDEFINITE).setAction(R.string.snackbar_action_login, new View.OnClickListener() {
-                            @Override
-                            public void onClick(View view) {
-                                createDialog();
-                            }
-                        }).setCallback(new Snackbar.Callback() {
-                            @Override public void onDismissed(Snackbar snackbar, int event) {
-                                if (event == DISMISS_EVENT_SWIPE) snackbar.show();
-                            }
-                        }).show();
+                        mLoginSnackbar.show();
                     }
                 });
 
@@ -547,17 +626,18 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
 
     @Override
     public void onProviderEnabled(String s) {
-
     }
 
     @Override
     public void onGoAvailable(PokemonGo go) {
         mGo = go;
         GoFoundEvent event = new GoFoundEvent(go);
+        ChangeBubbleEvent open_event = new ChangeBubbleEvent("open");
         startPokeService();
         startFetchService();
         EventBus.getDefault().postSticky(event);
-        vSplashInfo.setText("Login erfolgreich!");
+        EventBus.getDefault().post(open_event);
+        vSplashInfo.setText(R.string.login_successful);
     }
 
     @Override
@@ -566,6 +646,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         Snackbar.make(vSplashContent, "Please login! ;)", Snackbar.LENGTH_INDEFINITE).setAction(R.string.snackbar_action_login, new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                //TODO: createDialog() was here
                 createDialog();
             }
         }).setCallback(new Snackbar.Callback() {
@@ -592,6 +673,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
 
         LinearLayout ll = (LinearLayout) getLayoutInflater().inflate(R.layout.dialog_authenticate, null);
         final TextView editToken = (TextView) ll.findViewById(R.id.editToken);
+        editToken.setEnabled(false);
 
         WebView wv = (WebView) ll.findViewById(R.id.webView);
         wv.loadUrl(GoogleUserCredentialProvider.LOGIN_URL);
@@ -605,8 +687,22 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
 
                 return true;
             }
-        });
 
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                String title = view.getTitle();
+                int start = title.indexOf("Success code="); //for the length of code=
+                int end = title.indexOf("&");
+                if(start != -1 && end != -1) {
+                    String token = title.substring(start+13, end);
+                    if(token != null && !token.equals("")) {
+                        Toast.makeText(SplashActivity.this, "Token: " + token, Toast.LENGTH_LONG);
+                        editToken.setText(token);
+                    }
+                }
+            }
+        });
 
         builder.setView(ll)
                 .setPositiveButton(R.string.yes, new DialogInterface.OnClickListener() {
@@ -616,26 +712,30 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                         initializeGoByAuth();
                     }
                 })
-                .setNegativeButton(R.string.no, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        dialogInterface.cancel();
-                    }
-                })
                 .setOnCancelListener(new DialogInterface.OnCancelListener() {
                     @Override
                     public void onCancel(DialogInterface dialogInterface) {
                         Snackbar.make(vSplashContent, "You need to login!", Snackbar.LENGTH_INDEFINITE).setAction(R.string.snackbar_action_login, new View.OnClickListener() {
                             @Override
                             public void onClick(View view) {
+                                //TODO: createDialog() was here
                                 createDialog();
                             }
                         }).show();
                     }
                 });
 
+        if(isPremium()) {
+
+        }
+
+
         AlertDialog dialog = builder.create();
         dialog.show();
+    }
+
+    private boolean isPremium() {
+        return mSharedPrefs.getBoolean("premium", false);
     }
 
     @Override
@@ -646,6 +746,10 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onMessageEvent(MessageEvent event) {
+        if(event.title.equals("pokeball_trashed")) {
+            mStartPokeballSnackbar.show();
+        }
         Toast.makeText(this, "Service: " + event.title, Toast.LENGTH_SHORT).show();
     }
+
 }

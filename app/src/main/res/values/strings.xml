@@ -29,6 +29,10 @@
     <string name="gps_enable_positive">Yes</string>
     <string name="gps_enable_negative">No</string>
 
+    <string name="app_needs_overlay">The App needs overlay permission!</string>
+    <string name="app_needs_location">The App needs location permission!</string>
+    <string name="app_needs_gps">You need to enable GPS!</string>
+
     <string name="username">Username</string>
     <string name="password">Password</string>
 
@@ -42,11 +46,24 @@
     <string name="yes">Yes</string>
     <string name="no">No</string>
 
-    <string name="need_login">Need Login</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+
+
+    <string name="app_needs_login">You need to Login!</string>
+    <string name="login_successful">Login successful</string>
+
 
     <string name="google_token_edit_text">Google Token</string>
     <string name="google_token_found">Google Token found, press Google to login!</string>
 
+
+    <string name="not_premium">Consider buying premium to disable ads and support further development.</string>
+    <string name="has_premium">Thank you for your support! You are a champ.</string>
+
+
     <string name="banner_ad_unit_id">ca-app-pub-7144884667135062/1453212631</string>
+
+
 
 </resources>

@@ -7,7 +7,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="com.benjy3gg.pokeradar.SplashActivity"
-    tools:showIn="@layout/activity_splash">
+    tools:showIn="@layout/activity_splash"
+    android:layout_marginTop="56dp">
 
 
     <LinearLayout
@@ -17,14 +18,32 @@
         android:weightSum="1">
 
 
-        <ImageView
+        <com.google.android.gms.ads.AdView
+            android:id="@+id/adView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            ads:adSize="BANNER"
+            ads:adUnitId="@string/banner_ad_unit_id"
+            android:layout_gravity="bottom">
+        </com.google.android.gms.ads.AdView>
+
+        <TextView
+            android:text="@string/has_premium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/premiumText"
+            android:textAlignment="center"
+            android:textStyle="normal|bold" />
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
             app:srcCompat="@drawable/big_icon"
             android:id="@+id/splashIcon"
             app:layout_constraintLeft_toLeftOf="@+id/content_splash"
-            android:layout_weight="0.81"
-            android:scaleType="centerInside" />
+            android:scaleType="centerInside"
+            android:adjustViewBounds="true"
+            android:layout_weight="0.46" />
 
         <TextView
             android:layout_width="match_parent"
@@ -33,14 +52,13 @@
             android:id="@+id/splashInfo"
             android:textAlignment="center" />
 
-        <com.google.android.gms.ads.AdView
-            android:id="@+id/adView"
+        <EditText
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            ads:adSize="BANNER"
-            ads:adUnitId="@string/banner_ad_unit_id"
-            android:layout_weight="0.12">
-        </com.google.android.gms.ads.AdView>
+            android:inputType="textMultiLine"
+            android:ems="10"
+            android:id="@+id/logText"
+            android:enabled="false"/>
 
         <ProgressBar
             android:layout_width="match_parent"
@@ -48,6 +66,7 @@
             android:indeterminate="true"
             android:visibility="visible"
             android:id="@+id/splashProgress" />
+
     </LinearLayout>
 
 </android.support.constraint.ConstraintLayout>

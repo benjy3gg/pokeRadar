@@ -2,6 +2,14 @@ apply plugin: 'com.android.application'
 apply plugin: 'android-apt'
 
 android {
+    signingConfigs {
+        config {
+            keyAlias 'benjy3gg'
+            keyPassword 'ijjiijji'
+            storeFile file('C:/Users/benjy3gg/keystore.jks')
+            storePassword 'ijjiijji'
+        }
+    }
     compileSdkVersion 24
     buildToolsVersion "24.0.0"
     defaultConfig {
@@ -12,7 +20,6 @@ android {
         versionName "2.0"
         multiDexEnabled true
     }
-
     buildTypes {
         release {
             minifyEnabled false
@@ -36,7 +43,7 @@ dependencies {
     compile 'com.anjlab.android.iab.v3:library:1.0.+'
     compile 'com.github.quentin7b:android-location-tracker:3.2'
     compile 'com.mukesh:permissions:1.0.3'
-    compile files('libs/PokeGOAPI-Java-0.0.1-SNAPSHOT.jar')
+    compile files('libs/PokeGOAPI-Java-0.0.2-SNAPSHOT.jar')
     compile 'com.github.antonygolovin:fluentsnackbar:0.1.3'
     compile 'com.github.rehacktive:waspdb:1.1.1'
 }

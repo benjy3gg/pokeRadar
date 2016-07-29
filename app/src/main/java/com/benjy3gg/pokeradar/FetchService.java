@@ -38,6 +38,7 @@ import net.rehacktive.waspdb.WaspHash;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -160,7 +161,11 @@ public class FetchService extends IntentService {
         mMapReady = true;
     }
 
-
+    public void onMessageEvent(MessageEvent event) {
+        if(event.title.equals("pokeball_trashed")) {
+            this.onDestroy();
+        }
+    }
 
     public void setLastKnownLocation() {
         SharedPreferences.Editor editor = sharedPref.edit();
@@ -235,7 +240,7 @@ public class FetchService extends IntentService {
                     break;
             }
         }
-        return START_NOT_STICKY;
+        return START_STICKY;
     }
 
     public void tryStart() {
@@ -559,8 +564,10 @@ public class FetchService extends IntentService {
     }
 
     public String getDirectionName(double d) {
-        String directions[] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW", "N"};
+        String directions[] = {"N", "E", "S", "W", "N"};
         return directions[ (int)Math.round((  ((double)d % 360) / 45)) ];
+        //String directions[] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW", "N"};
+        //return directions[ (int)Math.round((  ((double)d % 360) / 45)) ];
     }
 
 
@@ -623,7 +630,7 @@ public class FetchService extends IntentService {
                 .setVibrate(pattern)
                 .setSound(notification)
                 .build();
-
+        //TODO: add encounterid as notification id?
         mNotificationManager.notify((int)System.currentTimeMillis(), n);
     }
 

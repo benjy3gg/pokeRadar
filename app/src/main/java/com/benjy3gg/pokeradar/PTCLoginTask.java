@@ -39,7 +39,7 @@ public class PTCLoginTask extends AsyncTask<Void, Void, PokemonGo> {
 
         CredentialProvider auth = null;
         try {
-            go = new PokemonGo(new PtcCredentialProvider(client, username, password, new SystemTimeImpl()), client, new SystemTimeImpl());
+            go = new PokemonGo(new PtcCredentialProvider(client,username,password),client);
         } catch (LoginFailedException e) {
             reason = "LoginFailedException";
         } catch (RemoteServerException e) {
