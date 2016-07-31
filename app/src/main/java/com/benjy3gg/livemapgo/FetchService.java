@@ -470,7 +470,7 @@ public class FetchService extends IntentService {
                         startService(itm);
                     }
                     try {
-                        Thread.sleep(1000);
+                        Thread.sleep(4000);
                     } catch (InterruptedException es) {
                         es.printStackTrace();
                     }

@@ -472,8 +472,8 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                 mOverlaySnackbar.dismiss();
                 if(!mLocationSnackbar.isShown()) mLocationSnackbar.show();
             } else {
-                enableLocation();
                 if (!bLocationEnabled) {
+                    enableLocation();
                     vSplashInfo.setText("/----------Waiting for Location--------/");
                     mLocationSnackbar.dismiss();
                     if(!mEnableLoationSnackbar.isShown()) mEnableLoationSnackbar.show();
@@ -611,7 +611,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
 
     @Override
     public void onProviderDisabled(String s) {
-
+        bLocationEnabled = false;
     }
 
     @Override
@@ -625,6 +625,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
 
     @Override
     public void onProviderEnabled(String s) {
+        bLocationEnabled = true;
     }
 
     @Override
