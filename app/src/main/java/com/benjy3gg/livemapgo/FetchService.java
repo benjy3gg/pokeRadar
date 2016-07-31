@@ -77,6 +77,7 @@ public class FetchService extends IntentService {
     private Handler updateHandler;
     private int updateDelay;
     private Runnable myRunnable;
+    private static FetchService instance = null;
 
     Calendar cal = Calendar.getInstance();
     TimeZone tz = cal.getTimeZone();
@@ -106,6 +107,11 @@ public class FetchService extends IntentService {
     private FirebaseAnalytics mFirebaseAnalytics;
 
     public static volatile boolean shouldContinue = true;
+    private boolean mStopped;
+
+    public static boolean isInstanceCreated() {
+        return instance != null;
+    }//met
 
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
@@ -135,6 +141,7 @@ public class FetchService extends IntentService {
     @Override
     public void onCreate() {
         super.onCreate();
+        instance = this;
         mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
         initializeDatabase();
         sharedPref = getSharedPreferences("credentials", Context.MODE_PRIVATE);
@@ -146,6 +153,8 @@ public class FetchService extends IntentService {
 
         initializeGps();
         tryStart();
+
+
     }
 
     @Subscribe(sticky = true)
@@ -174,6 +183,7 @@ public class FetchService extends IntentService {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        instance = null;
         try {
             unregisterReceiver(receiver);
         }catch (IllegalArgumentException e) {
@@ -233,8 +243,11 @@ public class FetchService extends IntentService {
                     tryStart();
                     break;
                 case "destroy":
-                    this.onDestroy();
-                    break;
+                    if(tracker != null && tracker.isListening()) {
+                        tracker.stopListening();
+                    }
+                    mStopped = true;
+                    stopSelf();
             }
         }
         return START_STICKY;
@@ -256,7 +269,9 @@ public class FetchService extends IntentService {
                     it.putExtra("lat", mCurrentLocation.latitude);
                     it.putExtra("lng", mCurrentLocation.longitude);
                     it.putExtra("type", "location");
-                    startService(it);
+                    if(!mStopped) {
+                        startService(it);
+                    }
                 }
 
                 if (mMapReady && mCurrentLocation != null && go != null) {
@@ -350,7 +365,9 @@ public class FetchService extends IntentService {
         it.putExtra("lat", mCurrentLocation.latitude);
         it.putExtra("lng", mCurrentLocation.longitude);
         it.putExtra("type", "location");
-        startService(it);
+        if(!mStopped) {
+            startService(it);
+        }
     }
 
     public void sendBroadcastIntent(String action) {
@@ -449,7 +466,9 @@ public class FetchService extends IntentService {
                     itm.putExtra("type", "marker");
                     itm.putExtra("lat", search_loc.latitude);
                     itm.putExtra("lng", search_loc.longitude);
-                    startService(itm);
+                    if(!mStopped) {
+                        startService(itm);
+                    }
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException es) {
@@ -465,7 +484,9 @@ public class FetchService extends IntentService {
                             it.putExtra("type", "connection_error");
                             mSendConnectionGoodAgain = true;
                             //Log.d(TAG, "Connection Error");
-                            startService(it);
+                            if(!mStopped) {
+                                startService(it);
+                            }
                         }
                     }
 
@@ -475,7 +496,9 @@ public class FetchService extends IntentService {
                         if(mSendConnectionGoodAgain) {
                             Intent itt = new Intent(FetchService.this, PokeService.class);
                             itt.putExtra("type", "connection_good");
-                            startService(itt);
+                            if(!mStopped) {
+                                startService(itt);
+                            }
                             mSendConnectionGoodAgain = false;
                             //Log.d(TAG, "Connection Good Again " + mSendConnectionGoodAgain);
                         }
@@ -502,7 +525,9 @@ public class FetchService extends IntentService {
 
                                     it.putExtras(pokedata);
                                     it.putExtra("type", "new_pokemon");
-                                    startService(it);
+                                    if(!mStopped) {
+                                        startService(it);
+                                    }
                                 }
                                 if(sharedPref.getBoolean("notify_"+p_simple.pokemonid, false)) {
                                     if(p_simple.timestampHidden > System.currentTimeMillis()) {
@@ -521,7 +546,9 @@ public class FetchService extends IntentService {
                             it.putExtra("type", "connection_error");
                             mSendConnectionGoodAgain = true;
                             Log.d(TAG, "Connection Error");
-                            startService(it);
+                            if(!mStopped) {
+                                startService(it);
+                            }
                         }
 
                         try {

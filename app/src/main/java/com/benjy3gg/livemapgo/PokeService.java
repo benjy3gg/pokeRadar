@@ -115,7 +115,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
         mNumSteps = 3;
 
         EventBus.getDefault().register(this);
-        MapsInitializer.initialize(this);
+        //MapsInitializer.initialize(this);
         createMapView(new Bundle());
 
         /*
@@ -204,7 +204,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
             int circleRadiusMeters = 150 * mNumSteps;
             double circleRadiusDegrees = circleRadiusMeters / meters_per_degree;
 
-            mBoundingCircle = mMap.addCircle(new CircleOptions().center(mCurrentLocation).radius(150 * mNumSteps).strokeColor(Color.argb(32, 29, 132, 181)));
+            mBoundingCircle = mMap.addCircle(new CircleOptions().center(mCurrentLocation).radius(150 * mNumSteps * 0.7).strokeColor(Color.argb(32, 29, 132, 181)));
             /*
             LatLng leftBound = new LatLng(mCurrentLocation.latitude-circleRadiusDegrees, mCurrentLocation.longitude-circleRadiusDegrees);
 
@@ -323,6 +323,9 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
                         //startService(it);
                     }
                     break;
+                case "destroy":
+                    stopSelfResult(START_NOT_STICKY);
+                    break;
                 case "new_pokemon":
                     Bundle getBundle = null;
                     getBundle = intent.getExtras();
@@ -334,10 +337,10 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
                     int pokemonid = getBundle.getInt("pokemonid", -1);
                     String name = getBundle.getString("name", "");
                     PokemonSimple p_simple = new PokemonSimple(till, encounterid, latitude, longitude, pokemonid, name);
-                    if (p_simple.timestampHidden > System.currentTimeMillis()) {
+                    //if (p_simple.timestampHidden > System.currentTimeMillis()) {
                         pokemons.put(encounterid, p_simple);
                         addPokemonMarker(encounterid);
-                    }
+                   // }
                     break;
                 case "bubble":
                     Toast.makeText(this, intent.getStringExtra("bubble"), Toast.LENGTH_SHORT).show();
@@ -434,7 +437,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
             if (mCircle != null) {
                 mCircle.remove();
             }
-            mCircle = mMap.addCircle(new CircleOptions().center(marker_loc).radius(100).strokeColor(Color.argb(32, 29, 132, 181)));
+            mCircle = mMap.addCircle(new CircleOptions().center(marker_loc).radius(100*0.7).strokeColor(Color.argb(32, 29, 132, 181)));
         }
     }
 
@@ -879,7 +882,11 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
     private void handleBubbleTrash() {
         //stopService(new Intent(PokeService.this, FetchService.class));
         EventBus.getDefault().post(new MessageEvent("pokeball_trashed", ""));
-        PokeService.this.onDestroy();
+        startService(new Intent(PokeService.this, FetchService.class).putExtra("type", "destroy"));
+        stopSelf();
+        //stopSelfResult(START_NOT_STICKY);
+        //startService(new Intent(PokeService.this, PokeService.class).putExtra("type", "destroy"));
+
     }
 
 

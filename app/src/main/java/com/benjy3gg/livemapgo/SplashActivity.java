@@ -271,6 +271,14 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         mAdView.loadAd(aaa);*/
     }
 
+    @Override
+    protected void onPause() {
+        if(mLocationTracker != null && mLocationTracker.isListening()) {
+            mLocationTracker.stopListening();
+        }
+        super.onPause();
+    }
+
     public void hideAds() {
         if(mAdView != null) {
             mAdView.setVisibility(View.INVISIBLE);
@@ -423,7 +431,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                             .setUsePassive(LocationUtils.isPassiveProviderEnabled(this))
                             .setTimeBetweenUpdates(10 * 1000)
                             .setMetersBetweenUpdates(100);
-            LocationTracker tracker = new LocationTracker(this, settings) {
+            mLocationTracker = new LocationTracker(this, settings) {
                 @Override
                 public void onLocationFound(@NonNull Location location) {
                     SplashActivity.this.onLocationChanged(location);
@@ -444,8 +452,8 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                     SplashActivity.this.onProviderEnabled(provider);
                 }
             };
-            tracker.startListening();
-            tracker.quickFix();
+            mLocationTracker.startListening();
+            mLocationTracker.quickFix();
         } catch (SecurityException e) {
             //showLocationSnackBar("SecurityException");
         }
@@ -457,18 +465,18 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         vSplashInfo.setText("/----------Waiting for Permissions--------/");
         if (!bHasOverlayPermission) {
             vSplashInfo.setText("/----------Waiting for Overlay--------/");
-            mOverlaySnackbar.show();
+            if(!mOverlaySnackbar.isShown()) mOverlaySnackbar.show();
         } else {
             if (!bHasLocationPermission) {
                 vSplashInfo.setText("/----------Waiting for LocationPermission--------/");
                 mOverlaySnackbar.dismiss();
-                mLocationSnackbar.show();
+                if(!mLocationSnackbar.isShown()) mLocationSnackbar.show();
             } else {
                 enableLocation();
                 if (!bLocationEnabled) {
                     vSplashInfo.setText("/----------Waiting for Location--------/");
                     mLocationSnackbar.dismiss();
-                    mEnableLoationSnackbar.show();
+                    if(!mEnableLoationSnackbar.isShown()) mEnableLoationSnackbar.show();
                 }else {
                     Toast.makeText(this, "All Permissions granted!", Toast.LENGTH_SHORT).show();
                     //TODO: createDialog() was here
