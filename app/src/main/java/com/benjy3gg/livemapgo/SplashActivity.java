@@ -87,6 +87,19 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
     private Snackbar mLoginSnackbar;
     private ImageView vSplashIcon;
     private Snackbar mStartPokeballSnackbar;
+    private boolean mAskProviders;
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if(mLocationTracker != null) {
+            mLocationTracker.stopListening();
+        }
+        startService(new Intent(this, FetchService.class).putExtra("type", "destroy"));
+        startService(new Intent(this, PokeService.class).putExtra("type", "destroy"));
+        if (bp != null)
+            bp.release();
+    }
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
@@ -404,6 +417,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
     public void enableLocation() {
         activateLocationUpdate();
         if (!isLocationEnabled()) {
+            mAskProviders = true;
             LocationUtils.askEnableProviders(this, R.string.gps_enable_text, R.string.gps_enable_positive, R.string.gps_enable_negative);
         } else {
             bLocationEnabled = true;
@@ -473,7 +487,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                 if(!mLocationSnackbar.isShown()) mLocationSnackbar.show();
             } else {
                 if (!bLocationEnabled) {
-                    enableLocation();
+                    if(!mAskProviders) enableLocation();
                     vSplashInfo.setText("/----------Waiting for Location--------/");
                     mLocationSnackbar.dismiss();
                     if(!mEnableLoationSnackbar.isShown()) mEnableLoationSnackbar.show();
@@ -481,7 +495,6 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
                     Toast.makeText(this, "All Permissions granted!", Toast.LENGTH_SHORT).show();
                     //TODO: createDialog() was here
                     createDialog();
-                    vSplashProgress.setVisibility(View.GONE);
                     vSplashInfo.setText("/----------Waiting for Login--------/");
                     mHandler.removeCallbacks(myRunnable);
                 }
@@ -638,6 +651,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
         EventBus.getDefault().postSticky(event);
         EventBus.getDefault().post(open_event);
         vSplashInfo.setText(R.string.login_successful);
+        vSplashProgress.setVisibility(View.GONE);
     }
 
     @Override

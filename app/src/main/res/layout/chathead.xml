@@ -11,4 +11,5 @@
         android:layout_height="50dip"
         android:id="@+id/chathead_img"
         android:src="@drawable/radar_good"/>
+
 </RelativeLayout>

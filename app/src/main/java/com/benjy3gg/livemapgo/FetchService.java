@@ -37,6 +37,7 @@ import net.rehacktive.waspdb.WaspHash;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
+import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -99,6 +100,7 @@ public class FetchService extends IntentService {
 
     public boolean mSendConnectionGoodAgain = false;
     private NotificationManager mNotificationManager;
+    public int mNumNotifications = 0;
     private int NOTIFICATION_ID = 1234;
     private int NOTIFICATION_ID_AUTH = 1235;
     public List<PokemonSimple> pokemonsInNotification = new ArrayList<>();
@@ -513,7 +515,6 @@ public class FetchService extends IntentService {
 
                                 pokemons.put(encounterID, p_simple);
                                 if(sharedPref.getBoolean("show_"+p_simple.pokemonid, true)) {
-
                                     Intent it = new Intent(FetchService.this, PokeService.class);
                                     Bundle pokedata = new Bundle();
                                     pokedata.putString("encounterid", String.valueOf(p_simple.encounterId));
@@ -522,6 +523,11 @@ public class FetchService extends IntentService {
                                     pokedata.putDouble("longitude", p_simple.longitude);
                                     pokedata.putInt("pokemonid", p_simple.pokemonid);
                                     pokedata.putString("name", p_simple.name);
+                                    if(sharedPref.getBoolean("notify_"+p_simple.pokemonid, false)) {
+                                        p_simple.setNotificationId(mNumNotifications);
+                                        pokedata.putInt("notificationid", p_simple.notificationId);
+                                        mNumNotifications++;
+                                    }
 
                                     it.putExtras(pokedata);
                                     it.putExtra("type", "new_pokemon");
@@ -612,11 +618,13 @@ public class FetchService extends IntentService {
             float bearing = locationA.bearingTo(locationB);
             String direction = getDirectionName(Math.abs(bearing));
 
-            CharSequence relTime = DateUtils.getRelativeTimeSpanString(
-            pp.timestampHidden,
-            System.currentTimeMillis(),
-                    DateUtils.FORMAT_ABBREV_RELATIVE);
-            inboxStyle.addLine(pp.name + " flees " + relTime + ", " + Math.round(distance) + " meters in " + direction);
+            /*CharSequence relTime = DateUtils.getRelativeTimeSpanString(
+                    System.currentTimeMillis(),
+                    System.currentTimeMillis()+pp.timestampHidden,
+                    DateUtils.FORMAT_ABBREV_ALL);
+            */
+            CharSequence relTime = DateUtils.formatSameDayTime(pp.timestampHidden, System.currentTimeMillis(), java.text.DateFormat.FULL, DateFormat.DEFAULT);
+            inboxStyle.addLine(pp.name + " until " + relTime + ", " + Math.round(distance) + " meters in " + direction);
         //}
 
 
@@ -624,16 +632,16 @@ public class FetchService extends IntentService {
         /*Intent deleteIntent = new Intent(NOTIFICATION_DELETED_ACTION);
         PendingIntent pendintIntent = PendingIntent.getBroadcast(this, 0, deleteIntent, 0);
         registerReceiver(receiver, new IntentFilter(NOTIFICATION_DELETED_ACTION));*/
-        long[] pattern = {600};
+        long[] pattern = {1000};
         if(!sharedPref.getBoolean("vibrate" ,false)) {
             pattern[0] = 0L;
-            pattern[1] = 0L;
-            pattern[2] = 0L;
         }
         Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        //Uri notification = Uri.parse("android.resource://" + getPackageName() + "pikaaaa.mp3");
         if(!sharedPref.getBoolean("sound" ,false)) {
             notification = null;
         }
+
 
 
         Intent notificationIntent = new Intent(this, SplashActivity.class);
@@ -644,7 +652,7 @@ public class FetchService extends IntentService {
 
         Notification n  = new NotificationCompat.Builder(this)
                 .setContentTitle(pp.name)
-                .setContentText(" flees " + relTime + ", " + Math.round(distance) + " meters in " + direction)
+                .setContentText(" until " + relTime + ", " + Math.round(distance) + " meters in " + direction)
                 .setSmallIcon(getResourceId("prefix_" + pp.pokemonid, "drawable"))
                 .setAutoCancel(true)
                 //.setStyle(inboxStyle)
@@ -655,7 +663,7 @@ public class FetchService extends IntentService {
                 .setSound(notification)
                 .build();
         //TODO: add encounterid as notification id?
-        mNotificationManager.notify((int)System.currentTimeMillis(), n);
+        mNotificationManager.notify(pp.notificationId, n);
     }
 
     public int getResourceId(String pVariableName, String pType) {

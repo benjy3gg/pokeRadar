@@ -118,6 +118,8 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
         //MapsInitializer.initialize(this);
         createMapView(new Bundle());
 
+        mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+
         /*
         mSeekBarVertical.setOnSeekBarChangeListener(new VerticalSeekBar.OnSeekBarChangeListener() {
             @Override
@@ -259,6 +261,9 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
                             long till = p.timestampHidden;
                             if (till < now) {
                                 m.remove();
+                                if(p.notificationId != -1) {
+                                    mNotificationManager.cancel(p.notificationId);
+                                }
                                 it.remove();
                             } else {
                                 int difference = (int) (till - now);
@@ -324,7 +329,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
                     }
                     break;
                 case "destroy":
-                    stopSelfResult(START_NOT_STICKY);
+                    stopSelf();
                     break;
                 case "new_pokemon":
                     Bundle getBundle = null;
@@ -337,6 +342,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
                     int pokemonid = getBundle.getInt("pokemonid", -1);
                     String name = getBundle.getString("name", "");
                     PokemonSimple p_simple = new PokemonSimple(till, encounterid, latitude, longitude, pokemonid, name);
+                    p_simple.setNotificationId(getBundle.getInt("notificationid", -1));
                     //if (p_simple.timestampHidden > System.currentTimeMillis()) {
                         pokemons.put(encounterid, p_simple);
                         addPokemonMarker(encounterid);

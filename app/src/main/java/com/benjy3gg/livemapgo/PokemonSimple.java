@@ -7,6 +7,7 @@ public class PokemonSimple {
     double longitude;
     int pokemonid;
     String name;
+    int notificationId;
 
     public PokemonSimple() {
 
@@ -19,5 +20,10 @@ public class PokemonSimple {
         this.longitude = longitude;
         this.pokemonid = pokemonid;
         this.name = name;
+        this.notificationId = -1;
+    }
+
+    public void setNotificationId(int notificationId) {
+        this.notificationId = notificationId;
     }
 }
