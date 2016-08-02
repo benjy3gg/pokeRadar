@@ -1,0 +1,94 @@
+{
+  "project_info": {
+    "project_number": "155148959487",
+    "firebase_url": "https://composed-augury-137823.firebaseio.com",
+    "project_id": "composed-augury-137823",
+    "storage_bucket": "composed-augury-137823.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:155148959487:android:5119a5357bce0f5d",
+        "android_client_info": {
+          "package_name": "com.benjy3gg.pokeradar"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "155148959487-m48a2dafd0ip6vqu4hro3i96mb4bt0sn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.benjy3gg.pokeradar",
+            "certificate_hash": "258AE860CA40BF26BD469B3620F0E62C54571AF9"
+          }
+        },
+        {
+          "client_id": "155148959487-8818nvnss1dvm5onitpvdef8b4pe6anc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCuSul2tAYlxOS2rphdyEFUiQtHjngHWSY"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:155148959487:android:adce3c82697358a8",
+        "android_client_info": {
+          "package_name": "com.benjy3gg.livemapgo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "155148959487-d8rc0l8rscf67jpk3okh6lhu5i5u18f0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.benjy3gg.livemapgo",
+            "certificate_hash": "258AE860CA40BF26BD469B3620F0E62C54571AF9"
+          }
+        },
+        {
+          "client_id": "155148959487-8818nvnss1dvm5onitpvdef8b4pe6anc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCuSul2tAYlxOS2rphdyEFUiQtHjngHWSY"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "155148959487-8818nvnss1dvm5onitpvdef8b4pe6anc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

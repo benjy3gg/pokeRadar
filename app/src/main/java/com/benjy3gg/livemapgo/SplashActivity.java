@@ -7,6 +7,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
+import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -58,6 +59,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
     private static final String SKU_PREMIUM = "com.benjy3gg.pokeradar.removeads";
     public static final int REQ_CODE_OVERLAY = 1234;
     public static final int REQ_CODE_LOCATION = 1235;
+    private static final int SOUND_REQ = 1236;
     public boolean bHasOverlayPermission = false;
     public boolean bHasLocationPermission = false;
     private CoordinatorLayout vSplashContent;
@@ -88,6 +90,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
     private ImageView vSplashIcon;
     private Snackbar mStartPokeballSnackbar;
     private boolean mAskProviders;
+    private String chosenRingtone;
 
     @Override
     protected void onDestroy() {
@@ -140,10 +143,21 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
             item.setChecked(mSharedPrefs.getBoolean("vibrate", false));
             return true;
         } else if (id == R.id.checkable_menu_sound) {
-            SharedPreferences.Editor editor = mSharedPrefs.edit();
-            editor.putBoolean("sound", !item.isChecked());
-            editor.commit();
-            item.setChecked(mSharedPrefs.getBoolean("sound", false));
+            //SharedPreferences.Editor editor = mSharedPrefs.edit();
+            //editor.putBoolean("sound", !item.isChecked());
+            //editor.commit();
+            //item.setChecked(mSharedPrefs.getBoolean("sound", false));
+            Intent intent = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER);
+            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION);
+            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select Tone");
+            String selectedTone =  mSharedPrefs.getString("ringtone", "");
+            if(selectedTone.equals("")) {
+                selectedTone = "NONE";
+            }
+            Uri tone =  Uri.parse(selectedTone);
+
+            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, tone);
+            this.startActivityForResult(intent, SOUND_REQ);
             return true;
         }else if (id == R.id.menu_premium) {
             if (isPremium()) {
@@ -307,6 +321,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
             AdRequest adRequest = new AdRequest.Builder().build();
             mAdView.loadAd(adRequest);
         }
+        removeShoppingIcon();
     }
 
     private void createSnackbars() {
@@ -385,13 +400,20 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+    protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
+        super.onActivityResult(requestCode, resultCode, intent);
         switch (requestCode) {
             case REQ_CODE_OVERLAY:
                 bHasOverlayPermission = true;
                 Toast.makeText(this, R.string.permission_overlay_granted, Toast.LENGTH_SHORT).show();
                 break;
+            case SOUND_REQ:
+                Uri uri = intent.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI);
+                if(uri != null) {
+                    mSharedPrefs.edit().putString("ringtone", uri.toString()).commit();
+                }else {
+                    mSharedPrefs.edit().putString("ringtone", "").commit();
+                }
         }
     }
 
@@ -644,6 +666,13 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
     @Override
     public void onGoAvailable(PokemonGo go) {
         mGo = go;
+        Bundle params = new Bundle();
+        try {
+            params.putString("provider", mGo.getAuthInfo().getProvider());
+        } catch (RemoteServerException e) {
+        } catch (LoginFailedException e) {
+        }
+        mFirebaseAnalytics.logEvent("login_done", params);
         GoFoundEvent event = new GoFoundEvent(go);
         ChangeBubbleEvent open_event = new ChangeBubbleEvent("open");
         startPokeService();
@@ -656,6 +685,8 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
 
     @Override
     public void onGoFailed(String reason) {
+        Bundle params = new Bundle();
+        mFirebaseAnalytics.logEvent("login_failed", params);
         Toast.makeText(this, "Login failed: " + reason, Toast.LENGTH_SHORT).show();
         Snackbar.make(vSplashContent, "Please login! ;)", Snackbar.LENGTH_INDEFINITE).setAction(R.string.snackbar_action_login, new View.OnClickListener() {
             @Override

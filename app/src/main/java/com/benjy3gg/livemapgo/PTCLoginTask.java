@@ -57,7 +57,7 @@ public class PTCLoginTask extends AsyncTask<Void, Void, PokemonGo> {
             editor.apply();
             listener.onGoAvailable(go);
         }else {
-            listener.onGoFailed(reason);
+            listener.onGoFailed(reason + "ptc");
         }
     }
 

@@ -12,6 +12,7 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
+import android.icu.util.BuddhistCalendar;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -44,6 +45,7 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polygon;
 import com.google.android.gms.maps.model.PolygonOptions;
+import com.google.firebase.analytics.FirebaseAnalytics;
 
 import net.rehacktive.waspdb.WaspHash;
 
@@ -97,12 +99,15 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
 
     public static int UPDATE_DELAY_FOREGROUND = 1000;
     public static int UPDATE_DELAY_BACKGROUND = 60000;
+    private FirebaseAnalytics mFirebaseAnalytics;
+    private long starttime = 0;
 
     @SuppressWarnings("deprecation")
 
     @Override
     public void onCreate() {
         super.onCreate();
+        starttime =System.currentTimeMillis();
         sharedPref = getSharedPreferences("credentials", Context.MODE_PRIVATE);
         getSetLastKnownLocation();
         initializeDatabase();
@@ -119,6 +124,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
         createMapView(new Bundle());
 
         mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
 
         /*
         mSeekBarVertical.setOnSeekBarChangeListener(new VerticalSeekBar.OnSeekBarChangeListener() {
@@ -650,11 +656,13 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
         });
 
         mapView.onResume();
+        //mMap.getUiSettings().setCompassEnabled(true);
 
         setupView();
         setupTimers();
 
         EventBus.getDefault().post(new MapReadyEvent());
+        mFirebaseAnalytics.logEvent("start_map", null);
     }
 
     @Override
@@ -666,6 +674,10 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        Bundle bundle = new Bundle();
+        long runtime = System.currentTimeMillis()-starttime;
+        bundle.putLong("runtime", runtime);
+        mFirebaseAnalytics.logEvent("stop_map", bundle);
         mapView.onDestroy();
         windowManager.removeView(v);
         windowManager.removeView(chatheadView);

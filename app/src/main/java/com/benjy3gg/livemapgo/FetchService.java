@@ -18,6 +18,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Vibrator;
 import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.NotificationCompat;
@@ -28,7 +29,10 @@ import android.widget.Toast;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.firebase.analytics.FirebaseAnalytics;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.pokegoapi.api.PokemonGo;
+import com.pokegoapi.api.map.pokemon.CatchablePokemon;
 
 import net.rehacktive.waspdb.WaspDb;
 import net.rehacktive.waspdb.WaspFactory;
@@ -36,6 +40,7 @@ import net.rehacktive.waspdb.WaspHash;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
+import org.json.JSONObject;
 
 import java.text.DateFormat;
 import java.util.ArrayList;
@@ -472,7 +477,7 @@ public class FetchService extends IntentService {
                         startService(itm);
                     }
                     try {
-                        Thread.sleep(4000);
+                        Thread.sleep(5250);
                     } catch (InterruptedException es) {
                         es.printStackTrace();
                     }
@@ -494,6 +499,8 @@ public class FetchService extends IntentService {
 
                     try {
                         Collection<WildPokemonOuterClass.WildPokemon> poke = go.getMap().getMapObjects().getWildPokemons();
+                        List<CatchablePokemon> catchable = go.getMap().getCatchablePokemon();
+
                         //Log.d(TAG, "Connection Restored " + mSendConnectionGoodAgain);
                         if(mSendConnectionGoodAgain) {
                             Intent itt = new Intent(FetchService.this, PokeService.class);
@@ -538,11 +545,49 @@ public class FetchService extends IntentService {
                                 if(sharedPref.getBoolean("notify_"+p_simple.pokemonid, false)) {
                                     if(p_simple.timestampHidden > System.currentTimeMillis()) {
                                         //pokemonsInNotification.add(p_simple);
-                                        postNotification(p_simple);
+                                        postNotification(p_simple, false);
                                     }
                                 }
                             }
 
+                        }
+                        for(CatchablePokemon pc : catchable) {
+                            String encounterID = String.valueOf(pc.getEncounterId());
+
+                            if (!pokemons.getAllKeys().contains(encounterID)) {
+                                long till = pc.getExpirationTimestampMs();
+                                String name = PokemonIdOuterClass.PokemonId.valueOf(pc.getPokemonId().getNumber()).name();
+                                PokemonSimple p_simple = new PokemonSimple(till, String.valueOf(pc.getEncounterId()), pc.getLatitude(), pc.getLongitude(), pc.getPokemonId().getNumber(), name);
+
+                                pokemons.put(encounterID, p_simple);
+                                if(sharedPref.getBoolean("show_"+p_simple.pokemonid, true)) {
+                                    Intent it = new Intent(FetchService.this, PokeService.class);
+                                    Bundle pokedata = new Bundle();
+                                    pokedata.putString("encounterid", String.valueOf(p_simple.encounterId));
+                                    pokedata.putLong("timestampHidden", p_simple.timestampHidden);
+                                    pokedata.putDouble("latitude", p_simple.latitude);
+                                    pokedata.putDouble("longitude", p_simple.longitude);
+                                    pokedata.putInt("pokemonid", p_simple.pokemonid);
+                                    pokedata.putString("name", p_simple.name);
+                                    if(sharedPref.getBoolean("notify_"+p_simple.pokemonid, false)) {
+                                        p_simple.setNotificationId(mNumNotifications);
+                                        pokedata.putInt("notificationid", p_simple.notificationId);
+                                        mNumNotifications++;
+                                    }
+
+                                    it.putExtras(pokedata);
+                                    it.putExtra("type", "new_pokemon");
+                                    if(!mStopped) {
+                                        startService(it);
+                                    }
+                                }
+                                if(sharedPref.getBoolean("notify_"+p_simple.pokemonid, false)) {
+                                    if(p_simple.timestampHidden > System.currentTimeMillis()) {
+                                        //pokemonsInNotification.add(p_simple);
+                                        postNotification(p_simple, true);
+                                    }
+                                }
+                            }
                         }
                     } catch (Exception ex) {
                         ex.printStackTrace();
@@ -601,7 +646,7 @@ public class FetchService extends IntentService {
     }
 
 
-    public void postNotification(PokemonSimple pp) {
+    public void postNotification(PokemonSimple pp, boolean catchable) {
 
         NotificationCompat.InboxStyle inboxStyle = new NotificationCompat.InboxStyle();
         //for(PokemonSimple p : pokemonsInNotification) {
@@ -632,23 +677,22 @@ public class FetchService extends IntentService {
         /*Intent deleteIntent = new Intent(NOTIFICATION_DELETED_ACTION);
         PendingIntent pendintIntent = PendingIntent.getBroadcast(this, 0, deleteIntent, 0);
         registerReceiver(receiver, new IntentFilter(NOTIFICATION_DELETED_ACTION));*/
-        long[] pattern = {1000};
-        if(!sharedPref.getBoolean("vibrate" ,false)) {
-            pattern[0] = 0L;
-        }
-        Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-        //Uri notification = Uri.parse("android.resource://" + getPackageName() + "pikaaaa.mp3");
-        if(!sharedPref.getBoolean("sound" ,false)) {
-            notification = null;
-        }
 
+        //Uri notification =;
+        Uri notification = Uri.parse(sharedPref.getString("ringtone",  ""));
+        if(notification.toString().equals("")) notification = null;
 
+        //Uri notification = Uri.parse("android.resource://" + getPackageName() + "/pikaaaa");
 
         Intent notificationIntent = new Intent(this, SplashActivity.class);
         notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
                 | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent intent = PendingIntent.getActivity(this, 0,
                 notificationIntent, 0);
+
+        //Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        // Vibrate for 500 milliseconds
+        //v.vibrate(500);
 
         Notification n  = new NotificationCompat.Builder(this)
                 .setContentTitle(pp.name)
@@ -659,11 +703,21 @@ public class FetchService extends IntentService {
                 //.setDeleteIntent(pendintIntent)
                 .setContentIntent(intent)
                 //.setFullScreenIntent(pendintIntent, false)
-                .setVibrate(pattern)
+                //.setVibrate(pattern)
                 .setSound(notification)
                 .build();
+        if(sharedPref.getBoolean("vibrate", false)) {
+            n.defaults |= Notification.DEFAULT_VIBRATE;
+            n.defaults |= Notification.DEFAULT_LIGHTS;
+        }
+
+
         //TODO: add encounterid as notification id?
         mNotificationManager.notify(pp.notificationId, n);
+        //Gson gson = new GsonBuilder().create();
+        //String json = gson.toJson(pp);
+        //String log = sharedPref.getString("log", "");
+        //sharedPref.edit().putString("log", log+json).commit();
     }
 
     public int getResourceId(String pVariableName, String pType) {

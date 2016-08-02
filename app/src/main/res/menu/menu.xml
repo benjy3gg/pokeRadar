@@ -12,7 +12,6 @@
 
     <item
         android:id="@+id/checkable_menu_sound"
-        android:checkable="true"
         android:title="Sound" />
 
     <item
