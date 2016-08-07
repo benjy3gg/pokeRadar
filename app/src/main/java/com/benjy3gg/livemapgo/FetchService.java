@@ -33,6 +33,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.pokegoapi.api.PokemonGo;
 import com.pokegoapi.api.map.pokemon.CatchablePokemon;
+import com.pokegoapi.exceptions.LoginFailedException;
+import com.pokegoapi.exceptions.RemoteServerException;
+import com.pokegoapi.util.PokeNames;
 
 import net.rehacktive.waspdb.WaspDb;
 import net.rehacktive.waspdb.WaspFactory;
@@ -44,9 +47,11 @@ import org.json.JSONObject;
 
 import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.TimeZone;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -101,6 +106,17 @@ public class FetchService extends IntentService {
 
     public static String ACTION_SHOW_PROGRESS = "progressShow";
     public static String ACTION_HIDE_PROGRESS = "progressHide";
+    public Locale[] supportedLocales = {
+            Locale.FRENCH,
+            Locale.GERMAN,
+            Locale.ENGLISH,
+            Locale.JAPANESE,
+            new Locale("zh", "CN"),
+            new Locale("zh", "HK"),
+            new Locale("ru"),
+    };
+
+    public Locale locale;
 
 
     public boolean mSendConnectionGoodAgain = false;
@@ -156,6 +172,20 @@ public class FetchService extends IntentService {
         mShouldFetch = true;
         mNumSteps = 3;
 
+        boolean bLocaleSupported = false;
+        locale = Locale.getDefault();
+        for(Locale l : supportedLocales) {
+            if(l.getLanguage().equals(locale.getLanguage())) {
+                locale = l;
+                bLocaleSupported = true;
+                break;
+            }else {
+                bLocaleSupported = false;
+            }
+        }
+        if(!bLocaleSupported) {
+            locale = Locale.ENGLISH;
+        }
         EventBus.getDefault().register(this);
 
         initializeGps();
@@ -477,7 +507,13 @@ public class FetchService extends IntentService {
                         startService(itm);
                     }
                     try {
-                        Thread.sleep(5250);
+                        try {
+                            Thread.sleep((long) go.getSettings().getMapSettings().getMinRefresh());
+                        } catch (LoginFailedException e) {
+                            e.printStackTrace();
+                        } catch (RemoteServerException e) {
+                            e.printStackTrace();
+                        }
                     } catch (InterruptedException es) {
                         es.printStackTrace();
                     }
@@ -517,7 +553,7 @@ public class FetchService extends IntentService {
 
                             if (!pokemons.getAllKeys().contains(encounterID)) {
                                 long till = System.currentTimeMillis() + p.getTimeTillHiddenMs();
-                                String name = PokemonIdOuterClass.PokemonId.valueOf(p.getPokemonData().getPokemonIdValue()).name();
+                                String name = PokeNames.getDisplayName(p.getPokemonData().getPokemonId().getNumber(), locale);
                                 PokemonSimple p_simple = new PokemonSimple(till, String.valueOf(p.getEncounterId()), p.getLatitude(), p.getLongitude(), p.getPokemonData().getPokemonIdValue(), name);
 
                                 pokemons.put(encounterID, p_simple);
@@ -556,7 +592,8 @@ public class FetchService extends IntentService {
 
                             if (!pokemons.getAllKeys().contains(encounterID)) {
                                 long till = pc.getExpirationTimestampMs();
-                                String name = PokemonIdOuterClass.PokemonId.valueOf(pc.getPokemonId().getNumber()).name();
+                                String name = PokeNames.getDisplayName(pc.getPokemonId().getNumber(), locale);
+                                //String name = PokemonIdOuterClass.PokemonId.valueOf(pc.getPokemonId().getNumber()).name();
                                 PokemonSimple p_simple = new PokemonSimple(till, String.valueOf(pc.getEncounterId()), pc.getLatitude(), pc.getLongitude(), pc.getPokemonId().getNumber(), name);
 
                                 pokemons.put(encounterID, p_simple);

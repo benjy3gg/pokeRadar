@@ -276,7 +276,7 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
 
         //Permissions
 
-        MobileAds.initialize(getApplicationContext(), "ca-app-pub-7144884667135062~9262401038");
+        MobileAds.initialize(getApplicationContext(), "ca-app-pub-7144884667135062~8976479432");
         String base64EncodedPublicKey = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuXhM+jUrijfSaO07IZxXHkorDx5zP1qdvvPE/tFFsH7yrCC3O6OdksMWX8UxheD0QscqPlee+yojm4HWc6lNf6tVL6YKbL895rZ3p+l41svhUIAuoovar55D6oXGNxVrPrGToqGVIc7QpXfmdRjndc1wsxFAM08N+f+iIQKsikFkp6TykAEvzbOWbHINdudmn3yuXQAOSCFSvGoCzcY6mNjO109/OItjc524afRv2TWIgqggXBYpnvW/GXDfOlOBzuHivJwvvXTLGpw/8DU/YCBYQM21EQmDn4GP4DgnEycSc3R7pMvu82/QYvrZ5nN4WZBPKFIJhTO0A4SaLn9OuwIDAQAB";
         // compute your public key and store it in base64EncodedPublicKey
 
@@ -284,18 +284,20 @@ public class SplashActivity extends AppCompatActivity implements LocationListene
 
         //TODO: add in release
 
+
         mAdView = (AdView) findViewById(R.id.adView);
-        if (isPremium()) {
-            hideAds();
-        } else {
+        //if (isPremium()) {
+        //    hideAds();
+        //} else {
             showAds();
-        }
+        //}
 
         /*
         AdView mAdView = (AdView) findViewById(R.id.adView);
         AdRequest.Builder adRequest = new AdRequest.Builder().addTestDevice("651B1B259A67AF560F4EDDEE3D82AD2B");
         AdRequest aaa=adRequest.build();
-        mAdView.loadAd(aaa);*/
+        mAdView.loadAd(aaa);
+        */
     }
 
     @Override

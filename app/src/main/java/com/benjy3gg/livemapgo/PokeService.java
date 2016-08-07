@@ -560,7 +560,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
         windowManager.getDefaultDisplay().getMetrics(metrics);
 
         if (!mFullscreen) {
-            v.animate().translationX(0).setDuration(500).setListener(new Animator.AnimatorListener() {
+            v.animate().translationX(0).setDuration(300).setListener(new Animator.AnimatorListener() {
                 @Override
                 public void onAnimationStart(Animator animator) {
                     v.setVisibility(View.VISIBLE);
@@ -587,7 +587,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
                 }
             }).start();
         } else {
-            v.animate().translationX(-metrics.widthPixels).setDuration(500).setListener(new Animator.AnimatorListener() {
+            v.animate().translationX(-metrics.widthPixels).setDuration(300).setListener(new Animator.AnimatorListener() {
                 @Override
                 public void onAnimationStart(Animator animator) {
                     setNewMapUpdateDelay(UPDATE_DELAY_BACKGROUND);
@@ -952,20 +952,25 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
     }
 
     private void resetPosition(int x_cord_now) {
-        if (x_cord_now <= szWindow.x / 2) {
-            isLeft = true;
-            moveToLeft(x_cord_now);
+        /*
+        x_cord_now = x_cord_now;
+        if((x_cord_now >= 0 && x_cord_now <= Utils.getDp(100, this)) || (x_cord_now >= szWindow.x - Utils.getDp(100, this) && x_cord_now <= szWindow.x)) {
+        }else {
+            if (x_cord_now <= szWindow.x / 2) {
+                isLeft = true;
+                moveToLeft(x_cord_now);
 
-        } else {
-            isLeft = false;
-            moveToRight(x_cord_now);
+            } else {
+                isLeft = false;
+                moveToRight(x_cord_now);
 
+            }
         }
-
+        */
     }
 
     private void moveToLeft(final int x_cord_now) {
-        final int x = szWindow.x - x_cord_now;
+       final int x = szWindow.x - x_cord_now;
 
         new CountDownTimer(500, 5) {
             WindowManager.LayoutParams mParams = (WindowManager.LayoutParams) chatheadView.getLayoutParams();
@@ -984,6 +989,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
     }
 
     private void moveToRight(final int x_cord_now) {
+
         new CountDownTimer(500, 5) {
             WindowManager.LayoutParams mParams = (WindowManager.LayoutParams) chatheadView.getLayoutParams();
 
@@ -1002,6 +1008,7 @@ public class PokeService extends IntentService implements OnMapReadyCallback {
 
     private double bounceValue(long step, long scale) {
         double value = scale * Math.exp(-0.055 * step) * Math.cos(0.08 * step);
+        //double value = step;
         return value;
     }
 
